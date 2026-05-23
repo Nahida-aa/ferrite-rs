@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 ferrite-core = { path = "../lib/ferrite-core" }
-bevy = { version = "0.14", default-features = false, features = ["bevy_winit", "bevy_ui", "bevy_render", "bevy_core_pipeline", "bevy_pbr", "bevy_asset", "x11"] }
+bevy = { version = "0.14", default-features = false, features = ["bevy_winit", "bevy_ui", "bevy_render", "bevy_core_pipeline", "bevy_pbr", "bevy_asset", "default_font", "x11"] }
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 bytes = "1"

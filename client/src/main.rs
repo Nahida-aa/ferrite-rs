@@ -1,6 +1,9 @@
 mod game;
+mod net_plugin;
 mod network;
+mod player;
 mod server;
+mod ui;
 
 use std::fs::OpenOptions;
 

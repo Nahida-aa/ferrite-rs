@@ -1,96 +1,52 @@
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::BytesMut;
 
-pub struct PacketDecoder {
-    buf: BytesMut,
+pub fn parse_packets(buf: &mut BytesMut) -> Option<(i32, BytesMut)> {
+    let mut tmp = buf.clone();
+    let packet_len = read_var_int(&mut tmp)? as usize;
+    let header_len = buf.len() - tmp.len();
+    let total = header_len + packet_len;
+    if buf.len() < total {
+        return None;
+    }
+    buf.advance(header_len);
+    let mut packet_data = buf.split_to(packet_len);
+    let id = read_var_int(&mut packet_data)?;
+    Some((id, packet_data))
 }
 
-impl PacketDecoder {
-    pub fn new() -> Self {
-        Self {
-            buf: BytesMut::new(),
-        }
-    }
-
-    pub fn buffer(&mut self) -> &mut BytesMut {
-        &mut self.buf
-    }
-
-    pub fn try_decode(&mut self) -> Option<(i32, BytesMut)> {
-        if self.buf.len() < 1 {
-            return None;
-        }
-
-        let mut len_cursor = self.buf.clone();
-        let packet_len = match read_var_int(&mut len_cursor) {
-            Some(len) => len as usize,
-            None => return None,
-        };
-
-        let header_len = self.buf.len() - len_cursor.len();
-        let total_len = header_len + packet_len;
-
-        if self.buf.len() < total_len {
-            return None;
-        }
-
-        self.buf.advance(header_len);
-        let mut packet_data = self.buf.split_to(packet_len);
-
-        let id = match read_var_int(&mut packet_data) {
-            Some(id) => id,
-            None => return None,
-        };
-
-        Some((id, packet_data))
-    }
-}
-
-pub struct PacketEncoder {
-    buf: BytesMut,
-}
-
-impl PacketEncoder {
-    pub fn new() -> Self {
-        Self {
-            buf: BytesMut::new(),
-        }
-    }
-
-    pub fn append_packet(&mut self, id: i32, data: &[u8]) {
-        let len = var_int_len(id) + data.len();
-        write_var_int(&mut self.buf, len as i32);
-        write_var_int(&mut self.buf, id);
-        self.buf.put_slice(data);
-    }
-
-    pub fn take(&mut self) -> BytesMut {
-        self.buf.split()
-    }
-}
-
-pub fn read_var_int(buf: &mut BytesMut) -> Option<i32> {
-    let mut result = 0i32;
-    let mut shift = 0;
-    let mut pos = 0;
-
+pub fn var_int_len(value: i32) -> usize {
+    let mut val = value as u32;
+    let mut len = 0;
     loop {
-        if pos >= buf.len() {
+        len += 1;
+        if val & 0xFFFFFF80 == 0 {
+            return len;
+        }
+        val >>= 7;
+    }
+}
+
+pub fn read_var_int(buf: &mut impl bytes::Buf) -> Option<i32> {
+    let mut value = 0u32;
+    let mut shift = 0;
+    loop {
+        if buf.remaining() == 0 {
             return None;
         }
-        let byte = buf[pos];
-        result |= ((byte & 0x7F) as i32) << shift;
-        shift += 7;
-        pos += 1;
-        if byte & 0x80 == 0 {
+        let b = buf.get_u8();
+        value |= ((b & 0x7F) as u32) << shift;
+        if b & 0x80 == 0 {
             break;
         }
+        shift += 7;
+        if shift >= 32 {
+            return None;
+        }
     }
-
-    buf.advance(pos);
-    Some(result)
+    Some(value as i32)
 }
 
-pub fn write_var_int(buf: &mut BytesMut, value: i32) {
+pub fn write_var_int(buf: &mut impl bytes::BufMut, value: i32) {
     let mut val = value as u32;
     loop {
         if val & 0xFFFFFF80 == 0 {
