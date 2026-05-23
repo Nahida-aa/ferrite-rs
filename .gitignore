@@ -6,3 +6,8 @@
 *.swo
 *~
 .env
+
+world/
+logs/
+
+*.log
