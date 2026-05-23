@@ -2,12 +2,11 @@ use bevy::prelude::*;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
 
+use ferrite_net::{Network, NetworkCommand, NetworkEvent as NetMsg};
+
 use crate::player::{PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerRes};
 use crate::server::ServerHandle;
 use crate::ui::{PauseMenuOpen, UiRes};
-use ferrite_net::{Network, NetworkCommand, NetworkEvent as NetMsg};
-
-// ── Resources ──
 
 #[derive(Resource)]
 pub struct NetworkRes {
@@ -31,7 +30,13 @@ pub struct CursorGrabState {
     pub was_grabbed: bool,
 }
 
-// ── Plugin ──
+#[derive(Event, Debug)]
+pub enum NetworkEvent {
+    Connected,
+    Disconnected(String),
+    PlayerPosition(f64, f64, f64),
+    LoginPlay { entity_id: i32, game_mode: u8 },
+}
 
 pub struct NetworkPlugin;
 
@@ -49,17 +54,53 @@ impl Plugin for NetworkPlugin {
             was_grabbed: false,
         })
         .init_resource::<PendingConnect>()
+        .add_event::<NetworkEvent>()
         .add_systems(
             Update,
-            (poll_network_system, handle_connections, cursor_grab_system),
-        );
+            (drain_network_events_system, handle_network_events_system).chain(),
+        )
+        .add_systems(Update, (handle_connections, cursor_grab_system));
     }
 }
 
-// ── Network polling ──
-
-fn poll_network_system(
+fn drain_network_events_system(
     mut net: ResMut<NetworkRes>,
+    mut network_events: EventWriter<NetworkEvent>,
+) {
+    let Some((net_inner, _)) = net.inner.as_mut() else {
+        return;
+    };
+
+    loop {
+        match net_inner.try_recv() {
+            Ok(Some(NetMsg::Connected)) => {
+                network_events.send(NetworkEvent::Connected);
+            }
+            Ok(Some(NetMsg::Disconnected(reason))) => {
+                network_events.send(NetworkEvent::Disconnected(reason));
+                break;
+            }
+            Ok(Some(NetMsg::PlayerPosition(x, y, z))) => {
+                network_events.send(NetworkEvent::PlayerPosition(x, y, z));
+            }
+            Ok(Some(NetMsg::LoginPlay { entity_id, game_mode })) => {
+                network_events.send(NetworkEvent::LoginPlay { entity_id, game_mode });
+            }
+            Ok(None) => break,
+            Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                tracing::info!("Network task ended");
+                network_events.send(NetworkEvent::Disconnected(
+                    "Network task ended".to_string(),
+                ));
+                break;
+            }
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty) => break,
+        }
+    }
+}
+
+fn handle_network_events_system(
+    mut events: EventReader<NetworkEvent>,
     mut player: ResMut<PlayerRes>,
     mut ui: ResMut<UiRes>,
     mut clear_color: ResMut<ClearColor>,
@@ -67,20 +108,39 @@ fn poll_network_system(
     mut block: ResMut<PlayerBlockEntity>,
     mut info: ResMut<PlayerInfoRes>,
     mut cursor: ResMut<CursorGrabState>,
+    mut net: ResMut<NetworkRes>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let event = {
-        let (net_inner, _) = match &mut net.inner {
-            Some(n) => n,
-            None => return,
-        };
-        match net_inner.try_recv() {
-            Ok(Some(e)) => Some(e),
-            Ok(None) => None,
-            Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
-                tracing::info!("Network task ended");
+    for event in events.read() {
+        match event {
+            NetworkEvent::Connected => {
+                tracing::info!("Connected!");
+                net.connecting = false;
+                net.connected = true;
+                clear_color.0 = Color::srgb(0.53, 0.81, 0.92);
+                if block.0.is_none() {
+                    let e = commands
+                        .spawn((
+                            PbrBundle {
+                                mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+                                material: materials.add(StandardMaterial {
+                                    base_color: Color::srgb(0.3, 0.7, 0.3),
+                                    ..default()
+                                }),
+                                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                                ..default()
+                            },
+                            PlayerBlock,
+                        ))
+                        .id();
+                    block.0 = Some(e);
+                }
+            }
+            NetworkEvent::Disconnected(reason) => {
+                tracing::info!("Disconnected: {reason}");
+                ui.last_error = Some(reason.clone());
                 if let Some(e) = block.0.take() {
                     commands.entity(e).despawn();
                 }
@@ -91,68 +151,23 @@ fn poll_network_system(
                 info.entity_id = None;
                 info.game_mode = None;
                 cursor.want_grabbed = false;
+                clear_color.0 = Color::srgb(0.05, 0.05, 0.05);
                 cmd_tx.0 = None;
-                return;
             }
-            Err(tokio::sync::mpsc::error::TryRecvError::Empty) => None,
-        }
-    };
-    match event {
-        Some(NetMsg::Connected) => {
-            tracing::info!("Connected!");
-            net.connecting = false;
-            net.connected = true;
-            clear_color.0 = Color::srgb(0.53, 0.81, 0.92);
-            if block.0.is_none() {
-                let e = commands
-                    .spawn((
-                        PbrBundle {
-                            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-                            material: materials.add(StandardMaterial {
-                                base_color: Color::srgb(0.3, 0.7, 0.3),
-                                ..default()
-                            }),
-                            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-                            ..default()
-                        },
-                        PlayerBlock,
-                    ))
-                    .id();
-                block.0 = Some(e);
+            NetworkEvent::PlayerPosition(x, y, z) => {
+                player.position = Some((*x, *y, *z));
+            }
+            NetworkEvent::LoginPlay {
+                entity_id,
+                game_mode,
+            } => {
+                tracing::info!("PlayerInfo: entity {} game mode {}", entity_id, game_mode);
+                info.entity_id = Some(*entity_id);
+                info.game_mode = Some(*game_mode);
             }
         }
-        Some(NetMsg::Disconnected(r)) => {
-            tracing::info!("Disconnected: {r}");
-            ui.last_error = Some(r);
-            if let Some(e) = block.0.take() {
-                commands.entity(e).despawn();
-            }
-            net.inner = None;
-            net.connected = false;
-            net.connecting = false;
-            player.position = None;
-            info.entity_id = None;
-            info.game_mode = None;
-            cursor.want_grabbed = false;
-            clear_color.0 = Color::srgb(0.05, 0.05, 0.05);
-            cmd_tx.0 = None;
-        }
-        Some(NetMsg::PlayerPosition(x, y, z)) => {
-            player.position = Some((x, y, z));
-        }
-        Some(NetMsg::LoginPlay {
-            entity_id,
-            game_mode,
-        }) => {
-            tracing::info!("PlayerInfo: entity {} game mode {}", entity_id, game_mode);
-            info.entity_id = Some(entity_id);
-            info.game_mode = Some(game_mode);
-        }
-        None => {}
     }
 }
-
-// ── Connection handler ──
 
 fn handle_connections(world: &mut World) {
     let mut pending = world.resource_mut::<PendingConnect>();
@@ -206,8 +221,6 @@ fn connect_to_server(
     net.inner = Some((network, server));
     net.connecting = true;
 }
-
-// ── Cursor grab ──
 
 fn cursor_grab_system(
     mut windows: Query<&mut Window>,
