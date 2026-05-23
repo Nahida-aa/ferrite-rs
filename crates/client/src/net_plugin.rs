@@ -83,15 +83,19 @@ fn drain_network_events_system(
             Ok(Some(NetMsg::PlayerPosition(x, y, z))) => {
                 network_events.send(NetworkEvent::PlayerPosition(x, y, z));
             }
-            Ok(Some(NetMsg::LoginPlay { entity_id, game_mode })) => {
-                network_events.send(NetworkEvent::LoginPlay { entity_id, game_mode });
+            Ok(Some(NetMsg::LoginPlay {
+                entity_id,
+                game_mode,
+            })) => {
+                network_events.send(NetworkEvent::LoginPlay {
+                    entity_id,
+                    game_mode,
+                });
             }
             Ok(None) => break,
             Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
                 tracing::info!("Network task ended");
-                network_events.send(NetworkEvent::Disconnected(
-                    "Network task ended".to_string(),
-                ));
+                network_events.send(NetworkEvent::Disconnected("Network task ended".to_string()));
                 break;
             }
             Err(tokio::sync::mpsc::error::TryRecvError::Empty) => break,

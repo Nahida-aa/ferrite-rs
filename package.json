@@ -4,6 +4,12 @@
   "scripts": {
     "dev": "cargo run --bin ferrite-client",
     "start": "cargo run --release --bin ferrite-client",
+    "cli": "cargo run --bin ferrite-cli",
+    "build": "cargo build",
+    "build:release": "cargo build --release",
+    "check": "cargo check",
+    "test": "cargo test",
+    "fmt": "cargo fmt --all",
     "stats": "cloc . --exclude-dir=node_modules,dist,.output,.tanstack,.content-collections,project.inlang,data,paraglide,vendor,.turbo,.next,target",
     "stats:git": "cloc . --exclude-dir=node_modules,dist,.output,.tanstack,.content-collections,project.inlang,data,paraglide,vendor,.turbo,.next,target --vcs git"
   }

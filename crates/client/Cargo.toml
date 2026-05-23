@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ferrite-core = { path = "../lib/ferrite-core" }
-ferrite-net = { path = "../lib/ferrite-net" }
+ferrite-core = { path = "../ferrite-core" }
+ferrite-net = { path = "../ferrite-net" }
 bevy = { version = "0.14", default-features = false, features = [
     "bevy_winit",
     "bevy_ui",

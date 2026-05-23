@@ -1,7 +1,8 @@
+pub mod config;
 pub mod handshake;
 pub mod login;
-pub mod config;
 pub mod play;
+pub mod status;
 
 /// Minecraft protocol version for 1.21.2–1.21.4
 pub const PROTOCOL_VERSION: i32 = 766;

@@ -1,3 +1,8 @@
 [workspace]
-members = ["lib/ferrite-core", "lib/ferrite-net", "client", "cli"]
+members = [
+    "crates/ferrite-core",
+    "crates/ferrite-net",
+    "crates/client",
+    "crates/cli",
+]
 resolver = "2"

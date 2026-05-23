@@ -1808,8 +1808,10 @@ name = "ferrite-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytes",
  "clap",
  "ferrite-core",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
