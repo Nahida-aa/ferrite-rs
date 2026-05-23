@@ -4,6 +4,7 @@ use tokio::sync::mpsc;
 
 use ferrite_net::{Network, NetworkCommand, NetworkEvent as NetMsg};
 
+use crate::chunk_mesh::chunk_to_mesh;
 use crate::player::{PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerRes};
 use crate::server::ServerHandle;
 use crate::ui::{PauseMenuOpen, UiRes};
@@ -181,53 +182,19 @@ fn handle_network_events_system(
                 info.game_mode = Some(*game_mode);
             }
             NetworkEvent::ChunkData { x, z, chunk } => {
-                tracing::info!("Spawning chunk at ({},{})", x, z);
-                // simple spawn: for each column spawn a single cube at the highest non-air block
-                let base_x = (*x as f32) * 16.0;
-                let base_z = (*z as f32) * 16.0;
-                for cx in 0..16usize {
-                    for cz in 0..16usize {
-                        // find highest non-air block
-                        let mut found_y: Option<i32> = None;
-                        for (si, section) in chunk.sections.iter().enumerate().rev() {
-                            for local_y in (0..ferrite_core::chunk::SECTION_HEIGHT).rev() {
-                                let idx = local_y
-                                    * ferrite_core::chunk::CHUNK_WIDTH
-                                    * ferrite_core::chunk::CHUNK_WIDTH
-                                    + cz * ferrite_core::chunk::CHUNK_WIDTH
-                                    + cx;
-                                if let Some(bs) = section.blocks.get(idx) {
-                                    // treat 0 as air
-                                    let is_air = *bs == ferrite_core::block::BlockState::AIR;
-                                    if !is_air {
-                                        let y = si as i32
-                                            * ferrite_core::chunk::SECTION_HEIGHT as i32
-                                            + local_y as i32;
-                                        found_y = Some(y);
-                                        break;
-                                    }
-                                }
-                            }
-                            if found_y.is_some() {
-                                break;
-                            }
-                        }
-                        if let Some(y) = found_y {
-                            let world_x = base_x + cx as f32 + 0.5;
-                            let world_y = y as f32 + 0.5;
-                            let world_z = base_z + cz as f32 + 0.5;
-                            commands.spawn(PbrBundle {
-                                mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-                                material: materials.add(StandardMaterial {
-                                    base_color: Color::srgb(0.6, 0.4, 0.2),
-                                    ..default()
-                                }),
-                                transform: Transform::from_xyz(world_x, world_y, world_z),
-                                ..default()
-                            });
-                        }
-                    }
-                }
+                tracing::info!("Building merged mesh for chunk at ({},{})", x, z);
+                let mesh = chunk_to_mesh(&chunk, *x, *z);
+                let handle = meshes.add(mesh);
+                let material = materials.add(StandardMaterial {
+                    base_color: Color::rgb(0.6, 0.6, 0.6),
+                    ..default()
+                });
+                commands.spawn(PbrBundle {
+                    mesh: handle,
+                    material,
+                    transform: Transform::IDENTITY,
+                    ..default()
+                });
             }
         }
     }

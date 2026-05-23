@@ -33,20 +33,6 @@ impl Chunk {
         primary_bit_mask: u32,
     ) -> Option<Self> {
         let blocks_per_section = SECTION_HEIGHT * CHUNK_WIDTH * CHUNK_WIDTH;
-        let mut sections = Vec::with_capacity(16);
-
-        for section_index in 0..16usize {
-            if (primary_bit_mask >> section_index) & 1 == 1 {
-                // section present: try to read blocks_per_section u16 values
-                if buf.len() < blocks_per_section * 2 {
-                    return None;
-                }
-                let mut sec = ChunkSection::new();
-            } else {
-                sections.push(ChunkSection::new());
-            }
-        }
-
         use crate::protocol::codec::{read_var_int, write_var_int};
         use bytes::Buf;
 
@@ -169,6 +155,70 @@ mod tests {
         // section 0 should be filled with 7
         for &b in chunk.sections[0].blocks.iter() {
             assert_eq!(b.raw(), 7u16);
+        }
+        // other sections should be air
+        for sec in chunk.sections.iter().skip(1) {
+            for &b in sec.blocks.iter() {
+                assert_eq!(b.raw(), BlockState::AIR.raw());
+            }
+        }
+    }
+
+    #[test]
+    fn decode_palette_bitpacked_chunk() {
+        use bytes::BufMut;
+
+        let blocks_per_section = SECTION_HEIGHT * CHUNK_WIDTH * CHUNK_WIDTH;
+        // bits per block we'll use for palette indices
+        let bits_per_block = 4usize; // supports up to 16 palette entries
+        let palette = vec![7u16, 42u16];
+
+        // create palette varint encoding
+        let mut payload = BytesMut::new();
+        // palette length
+        crate::protocol::codec::write_var_int(&mut payload, palette.len() as i32);
+        for &p in &palette {
+            crate::protocol::codec::write_var_int(&mut payload, p as i32);
+        }
+
+        // prepare block indices: alternate between palette index 0 and 1
+        let mut indices = Vec::with_capacity(blocks_per_section);
+        for i in 0..blocks_per_section {
+            indices.push((i % 2) as u64);
+        }
+
+        // compute longs needed
+        let total_bits = blocks_per_section * bits_per_block;
+        let long_count = (total_bits + 63) / 64;
+        crate::protocol::codec::write_var_int(&mut payload, long_count as i32);
+
+        // pack into little-endian u64 array
+        let mut data = vec![0u64; long_count];
+        for (i, &idx) in indices.iter().enumerate() {
+            let bit_pos = i * bits_per_block;
+            let long_idx = bit_pos / 64;
+            let offset = bit_pos % 64;
+            data[long_idx] |= (idx as u64) << offset;
+            if offset + bits_per_block > 64 {
+                let overflow = offset + bits_per_block - 64;
+                if long_idx + 1 < data.len() {
+                    data[long_idx + 1] |= (idx as u64) >> (bits_per_block - overflow);
+                }
+            }
+        }
+
+        for v in data.iter() {
+            payload.put_u64_le(*v);
+        }
+
+        // call parser with mask indicating only section 0 present
+        let mask = 1u32;
+        let mut buf = payload.clone();
+        let chunk = Chunk::decode_from_play_payload(&mut buf, mask).expect("decode palette chunk");
+        // verify section 0 blocks are alternating palette values
+        for (i, &b) in chunk.sections[0].blocks.iter().enumerate() {
+            let expected_raw = palette[(i % 2) as usize];
+            assert_eq!(b.raw(), expected_raw);
         }
         // other sections should be air
         for sec in chunk.sections.iter().skip(1) {

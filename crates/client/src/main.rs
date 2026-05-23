@@ -1,3 +1,4 @@
+mod chunk_mesh;
 mod game;
 mod net_plugin;
 mod player;
