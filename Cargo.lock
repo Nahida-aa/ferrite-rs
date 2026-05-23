@@ -1827,6 +1827,7 @@ dependencies = [
  "clap",
  "env_logger",
  "ferrite-core",
+ "ferrite-net",
  "flate2",
  "glam 0.29.3",
  "kira",
@@ -1849,6 +1850,23 @@ dependencies = [
  "glam 0.29.3",
  "serde",
  "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "ferrite-net"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "anyhow",
+ "bytes",
+ "cfb8",
+ "ferrite-core",
+ "flate2",
+ "rand",
+ "rsa",
  "tokio",
  "tracing",
  "uuid",

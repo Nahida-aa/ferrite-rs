@@ -1,7 +1,3 @@
 [workspace]
-members = [
-    "lib/ferrite-core",
-    "client",
-    "cli",
-]
+members = ["lib/ferrite-core", "lib/ferrite-net", "client", "cli"]
 resolver = "2"

@@ -2,10 +2,10 @@ use bevy::prelude::*;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
 
-use crate::network::{Network, NetworkCommand, NetworkEvent as NetMsg};
 use crate::player::{PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerRes};
 use crate::server::ServerHandle;
 use crate::ui::{PauseMenuOpen, UiRes};
+use ferrite_net::{Network, NetworkCommand, NetworkEvent as NetMsg};
 
 // ── Resources ──
 
@@ -37,21 +37,22 @@ pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .insert_resource(NetworkRes {
-                inner: None,
-                connected: false,
-                connecting: false,
-            })
-            .insert_resource(EcsRuntime(Runtime::new().unwrap()))
-            .insert_resource(CmdTx(None))
-            .insert_resource(CursorGrabState { want_grabbed: false, was_grabbed: false })
-            .init_resource::<PendingConnect>()
-            .add_systems(Update, (
-                poll_network_system,
-                handle_connections,
-                cursor_grab_system,
-            ));
+        app.insert_resource(NetworkRes {
+            inner: None,
+            connected: false,
+            connecting: false,
+        })
+        .insert_resource(EcsRuntime(Runtime::new().unwrap()))
+        .insert_resource(CmdTx(None))
+        .insert_resource(CursorGrabState {
+            want_grabbed: false,
+            was_grabbed: false,
+        })
+        .init_resource::<PendingConnect>()
+        .add_systems(
+            Update,
+            (poll_network_system, handle_connections, cursor_grab_system),
+        );
     }
 }
 
@@ -103,18 +104,20 @@ fn poll_network_system(
             net.connected = true;
             clear_color.0 = Color::srgb(0.53, 0.81, 0.92);
             if block.0.is_none() {
-                let e = commands.spawn((
-                    PbrBundle {
-                        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-                        material: materials.add(StandardMaterial {
-                            base_color: Color::srgb(0.3, 0.7, 0.3),
+                let e = commands
+                    .spawn((
+                        PbrBundle {
+                            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+                            material: materials.add(StandardMaterial {
+                                base_color: Color::srgb(0.3, 0.7, 0.3),
+                                ..default()
+                            }),
+                            transform: Transform::from_xyz(0.0, 0.0, 0.0),
                             ..default()
-                        }),
-                        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-                        ..default()
-                    },
-                    PlayerBlock,
-                )).id();
+                        },
+                        PlayerBlock,
+                    ))
+                    .id();
                 block.0 = Some(e);
             }
         }
@@ -137,7 +140,10 @@ fn poll_network_system(
         Some(NetMsg::PlayerPosition(x, y, z)) => {
             player.position = Some((x, y, z));
         }
-        Some(NetMsg::LoginPlay { entity_id, game_mode }) => {
+        Some(NetMsg::LoginPlay {
+            entity_id,
+            game_mode,
+        }) => {
             tracing::info!("PlayerInfo: entity {} game mode {}", entity_id, game_mode);
             info.entity_id = Some(entity_id);
             info.game_mode = Some(game_mode);
@@ -148,9 +154,7 @@ fn poll_network_system(
 
 // ── Connection handler ──
 
-fn handle_connections(
-    world: &mut World,
-) {
+fn handle_connections(world: &mut World) {
     let mut pending = world.resource_mut::<PendingConnect>();
     if pending.0.is_empty() {
         return;

@@ -7,6 +7,7 @@ use cfb8::cipher::KeyIvInit;
 
 type AesCfb8Enc = cfb8::Encryptor<Aes128>;
 type AesCfb8Dec = cfb8::Decryptor<Aes128>;
+use ferrite_core::protocol::codec::{parse_packets, read_var_int, var_int_len, write_var_int};
 use ferrite_core::protocol::packets::config::{
     ClientBoundKnownPacks, ClientBoundPluginMessage, ClientInformation, FinishConfiguration,
     FinishConfigurationAcknowledged, RegistryData, ServerBoundKnownPacks,
@@ -23,7 +24,6 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
 use super::{NetworkCommand, NetworkEvent};
-use ferrite_core::protocol::codec::{parse_packets, read_var_int, var_int_len, write_var_int};
 
 struct Compression {
     threshold: u32,
@@ -42,7 +42,6 @@ pub async fn run(
     let mut enc_cipher: Option<AesCfb8Enc> = None;
     let mut dec_cipher: Option<AesCfb8Dec> = None;
 
-    // Handshake
     let hs = ferrite_core::protocol::packets::handshake::Handshake {
         protocol_version: ferrite_core::protocol::packets::FERRUMC_PROTOCOL,
         server_address: "127.0.0.1".to_string(),
@@ -58,7 +57,6 @@ pub async fn run(
     )
     .await?;
 
-    // Login Start
     let offline_uuid = uuid::Uuid::from_u128({
         let s = format!("OfflinePlayer:{}", username);
         s.bytes().fold(0u128, |acc, b| {
@@ -78,7 +76,6 @@ pub async fn run(
     )
     .await?;
 
-    // Login phase
     let mut login_buf = BytesMut::new();
     loop {
         read_packet(&mut reader, &mut login_buf, &compression, &mut dec_cipher).await?;
@@ -88,7 +85,6 @@ pub async fn run(
 
         match id {
             0x03 => {
-                // Set Compression
                 let threshold = read_var_int(&mut data)
                     .ok_or(anyhow::anyhow!("bad compression threshold"))?
                     as u32;
@@ -96,7 +92,6 @@ pub async fn run(
                 compression = Some(Compression { threshold });
             }
             0x02 => {
-                // Login Success
                 tracing::debug!(
                     "LoginSuccess raw data ({} bytes): {:?}",
                     data.len(),
@@ -108,7 +103,6 @@ pub async fn run(
                 break;
             }
             0x01 => {
-                // Encryption Request
                 let (_server_id, pubkey_der, verify_token) = parse_encryption_request(&mut data)?;
                 tracing::info!("Encryption request received");
 
@@ -159,14 +153,10 @@ pub async fn run(
                     other,
                     data.len()
                 );
-                // Don't break, continue reading
             }
         }
     }
 
-    // In MC 1.20.5+ (protocol 766+), the Login Acknowledged packet was removed.
-    // The client transitions directly to Configuration state after Login Success.
-    // Login Acknowledged
     {
         let payload = ferrite_core::protocol::packets::login::LoginAcknowledged.encode();
         let id = ferrite_core::protocol::packets::login::LoginAcknowledged::ID;
@@ -178,8 +168,6 @@ pub async fn run(
         .await
         .map_err(|_| anyhow::anyhow!("channel closed"))?;
 
-    // Configuration state
-    // Step 1: Send ClientInformation (required by server before it sends config data)
     {
         let client_info = ClientInformation {
             locale: "en_US".to_string(),
@@ -204,7 +192,6 @@ pub async fn run(
         tracing::info!("Sent ClientInformation");
     }
 
-    // Step 2: Enter config read loop
     let mut buf = BytesMut::new();
     let mut attempts = 0u32;
     loop {
@@ -325,8 +312,6 @@ async fn run_play_loop(
     events: &mpsc::Sender<NetworkEvent>,
     cmd_rx: &mut mpsc::Receiver<NetworkCommand>,
 ) -> Result<()> {
-    // We'll handle play state packets as they arrive
-
     loop {
         tokio::select! {
             biased;
@@ -362,7 +347,6 @@ async fn run_play_loop(
         while let Some((id, mut data)) = parse_packets(buf) {
             tracing::trace!("Play: packet 0x{:02x} ({} bytes)", id, data.len());
             match id {
-                // Keep Alive
                 KeepAliveS2C::ID => {
                     let ka =
                         KeepAliveS2C::decode(&mut data).ok_or(anyhow::anyhow!("bad keepalive"))?;
@@ -370,7 +354,6 @@ async fn run_play_loop(
                     write_packet(writer, KeepAliveC2S::ID, &payload, compression, enc_cipher)
                         .await?;
                 }
-                // Login Play (Join Game)
                 0x2B => {
                     tracing::info!("LoginPlay received ({} bytes)", data.len());
                     if data.len() >= 6 {
@@ -390,22 +373,16 @@ async fn run_play_loop(
                         );
                     }
                 }
-                // Player Abilities
                 0x39 => {
                     tracing::info!("PlayerAbilities received ({} bytes)", data.len());
                 }
-                // Entity Status (OP level)
                 0x1E => {
                     tracing::info!("EntityStatus received ({} bytes)", data.len());
                 }
-                // Synchronize Player Position
                 0x41 => {
                     tracing::info!("SyncPlayerPosition received ({} bytes)", data.len());
-                    if let Some(teleport_id) =
-                        ferrite_core::protocol::codec::read_var_int(&mut data)
-                    {
+                    if let Some(teleport_id) = read_var_int(&mut data) {
                         tracing::info!("Teleport ID: {}", teleport_id);
-                        // Extract position and rotation
                         let x = data.get_f64();
                         let y = data.get_f64();
                         let z = data.get_f64();
@@ -422,16 +399,11 @@ async fn run_play_loop(
                             yaw,
                             pitch
                         );
-                        // Send teleport confirm (C→S Play 0x00)
                         let mut confirm_payload = BytesMut::new();
-                        ferrite_core::protocol::codec::write_var_int(
-                            &mut confirm_payload,
-                            teleport_id,
-                        );
+                        write_var_int(&mut confirm_payload, teleport_id);
                         write_packet(writer, 0x00, &confirm_payload, compression, enc_cipher)
                             .await?;
                         tracing::info!("Sent teleport confirm");
-                        // Send player position and rotation (C→S Play 0x1E)
                         let mut pos_payload = BytesMut::new();
                         pos_payload.put_f64(x);
                         pos_payload.put_f64(y);
@@ -453,15 +425,12 @@ async fn run_play_loop(
     }
 }
 
-// ── Unified packet read (handles raw / compressed / encrypted + compressed) ──
-
 async fn read_packet(
     reader: &mut OwnedReadHalf,
     buf: &mut BytesMut,
     compression: &Option<Compression>,
     dec_cipher: &mut Option<AesCfb8Dec>,
 ) -> Result<()> {
-    // Step 1: read raw or encrypted frame into temp buffer
     let mut tmp = BytesMut::new();
     if let Some(ref mut cipher) = dec_cipher {
         read_encrypted_frame(reader, &mut tmp, cipher).await?;
@@ -469,7 +438,6 @@ async fn read_packet(
         read_raw_frame(reader, &mut tmp).await?;
     }
 
-    // Step 2: decompress if needed
     if let Some(ref comp) = compression {
         decompress_into(tmp, buf, comp)?;
     } else {
@@ -477,8 +445,6 @@ async fn read_packet(
     }
     Ok(())
 }
-
-// ── Encrypted read (decrypts VarInt length + data) ──
 
 async fn read_encrypted_frame(
     reader: &mut OwnedReadHalf,
@@ -504,18 +470,14 @@ async fn read_encrypted_frame(
     reader.read_exact(&mut buf[..]).await?;
     cipher.decrypt(&mut buf[..]);
 
-    // Prepend the length VarInt
     let mut out = BytesMut::from(&len_bytes[..]);
     out.extend_from_slice(&buf[..]);
     *buf = out;
     Ok(())
 }
 
-// ── Compressed / raw frame decompression ──
-
 fn decompress_into(frame: BytesMut, buf: &mut BytesMut, _comp: &Compression) -> Result<()> {
     tracing::info!("decompress_into frame ({} bytes)", frame.len());
-    // frame = VarInt(packet_length) + VarInt(data_length) + (zlib | raw)
     let mut cursor = frame.clone();
     let _packet_len =
         read_var_int(&mut cursor).ok_or(anyhow::anyhow!("bad frame varint"))? as usize;
@@ -523,27 +485,21 @@ fn decompress_into(frame: BytesMut, buf: &mut BytesMut, _comp: &Compression) -> 
 
     let data_length =
         read_var_int(&mut cursor).ok_or(anyhow::anyhow!("bad data_length varint"))? as usize;
-    // frame bytes consumed so far
     let consumed = frame.len() - cursor.len();
 
     if data_length > 0 {
-        // zlib compressed
         let mut decoder = ZlibDecoder::new(&frame[consumed..]);
         let mut decompressed = vec![0u8; data_length];
         decoder.read_exact(&mut decompressed)?;
-        // Write raw packet: VarInt(payload_len) + payload
         write_var_int(buf, decompressed.len() as i32);
         buf.extend_from_slice(&decompressed);
     } else {
-        // raw data
         let payload = &frame[consumed..];
         write_var_int(buf, payload.len() as i32);
         buf.extend_from_slice(payload);
     }
     Ok(())
 }
-
-// ── Raw frame read (no compression, no encryption) ──
 
 async fn read_raw_frame(reader: &mut OwnedReadHalf, buf: &mut BytesMut) -> Result<()> {
     let mut raw_varint = [0u8; 5];
@@ -568,8 +524,6 @@ async fn read_raw_frame(reader: &mut OwnedReadHalf, buf: &mut BytesMut) -> Resul
     Ok(())
 }
 
-// ── Encryption Request parsing ──
-
 fn parse_encryption_request(data: &mut BytesMut) -> Result<(String, Vec<u8>, Vec<u8>)> {
     let server_id = ferrite_core::protocol::codec::read_string(data, 32767)
         .ok_or(anyhow::anyhow!("bad server id"))?;
@@ -579,8 +533,6 @@ fn parse_encryption_request(data: &mut BytesMut) -> Result<(String, Vec<u8>, Vec
     let token = data.split_to(token_len).to_vec();
     Ok((server_id, pubkey, token))
 }
-
-// ── Unified packet write (raw / compressed + encrypted) ──
 
 async fn write_packet(
     writer: &mut OwnedWriteHalf,
@@ -596,7 +548,6 @@ async fn write_packet(
         p
     };
 
-    // Apply compression wrapper if needed
     let mut frame = if let Some(ref comp) = compression {
         encode_compressed_frame(&raw_payload, comp)
     } else {
@@ -606,7 +557,6 @@ async fn write_packet(
         f
     };
 
-    // Encrypt if needed
     if let Some(ref mut cipher) = enc_cipher {
         cipher.encrypt(&mut frame);
     }
@@ -624,14 +574,12 @@ async fn write_packet(
 
 fn encode_compressed_frame(raw_payload: &[u8], comp: &Compression) -> BytesMut {
     if comp.threshold > 0 && raw_payload.len() >= comp.threshold as usize {
-        // Compress
         use flate2::write::ZlibEncoder;
         use flate2::Compression;
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(raw_payload).unwrap();
         let compressed = encoder.finish().unwrap();
         let mut frame = BytesMut::new();
-        // Total length includes data_length varint + compressed data
         let mut data_header = Vec::new();
         ferrite_core::protocol::codec::write_var_int(&mut data_header, raw_payload.len() as i32);
         let data_len = data_header.len() + compressed.len();
@@ -640,7 +588,6 @@ fn encode_compressed_frame(raw_payload: &[u8], comp: &Compression) -> BytesMut {
         frame.extend_from_slice(&compressed);
         frame
     } else {
-        // Send raw, with data_length = 0
         let mut frame = BytesMut::new();
         let data_header_len = var_int_len(0);
         let total = data_header_len + raw_payload.len();

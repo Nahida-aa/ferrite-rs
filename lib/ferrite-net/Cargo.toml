@@ -1,0 +1,17 @@
+[package]
+name = "ferrite-net"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ferrite-core = { path = "../ferrite-core" }
+anyhow = "1"
+bytes = "1"
+tokio = { version = "1", features = ["full"] }
+aes = "0.9"
+cfb8 = "0.9"
+flate2 = "1"
+rsa = "0.9"
+rand = "0.8"
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }

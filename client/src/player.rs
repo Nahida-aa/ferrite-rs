@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::network::NetworkCommand;
+use ferrite_net::NetworkCommand;
 
 // ── Resources ──
 
@@ -17,7 +17,10 @@ pub struct PlayerInfoRes {
 
 impl Default for PlayerInfoRes {
     fn default() -> Self {
-        Self { entity_id: None, game_mode: None }
+        Self {
+            entity_id: None,
+            game_mode: None,
+        }
     }
 }
 
@@ -29,7 +32,10 @@ pub struct PlayerLookRes {
 
 impl Default for PlayerLookRes {
     fn default() -> Self {
-        Self { yaw: 0.0, pitch: 0.3 }
+        Self {
+            yaw: 0.0,
+            pitch: 0.3,
+        }
     }
 }
 
@@ -45,16 +51,11 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .insert_resource(PlayerRes { position: None })
+        app.insert_resource(PlayerRes { position: None })
             .insert_resource(PlayerInfoRes::default())
             .insert_resource(PlayerLookRes::default())
             .insert_resource(PlayerBlockEntity(None))
-            .add_systems(Update, (
-                look_system,
-                camera_follow_player,
-                movement_system,
-            ));
+            .add_systems(Update, (look_system, camera_follow_player, movement_system));
     }
 }
 
@@ -126,10 +127,18 @@ fn movement_system(
     let right = Vec3::new(look.yaw.cos(), 0.0, look.yaw.sin());
 
     let mut delta = Vec3::ZERO;
-    if keyboard.pressed(KeyCode::KeyW) { delta += forward; }
-    if keyboard.pressed(KeyCode::KeyS) { delta -= forward; }
-    if keyboard.pressed(KeyCode::KeyA) { delta -= right; }
-    if keyboard.pressed(KeyCode::KeyD) { delta += right; }
+    if keyboard.pressed(KeyCode::KeyW) {
+        delta += forward;
+    }
+    if keyboard.pressed(KeyCode::KeyS) {
+        delta -= forward;
+    }
+    if keyboard.pressed(KeyCode::KeyA) {
+        delta -= right;
+    }
+    if keyboard.pressed(KeyCode::KeyD) {
+        delta += right;
+    }
 
     if delta == Vec3::ZERO {
         return;
