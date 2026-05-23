@@ -7,7 +7,6 @@ use cfb8::cipher::KeyIvInit;
 
 type AesCfb8Enc = cfb8::Encryptor<Aes128>;
 type AesCfb8Dec = cfb8::Decryptor<Aes128>;
-use ferrite_core::protocol::codec::read_var_int;
 use ferrite_core::protocol::packets::config::{
     ClientBoundKnownPacks, ClientBoundPluginMessage, ClientInformation, FinishConfiguration,
     FinishConfigurationAcknowledged, RegistryData, ServerBoundKnownPacks,
@@ -24,6 +23,7 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
 use super::{NetworkCommand, NetworkEvent};
+use ferrite_core::protocol::codec::{parse_packets, read_var_int, var_int_len, write_var_int};
 
 struct Compression {
     threshold: u32,
@@ -61,7 +61,9 @@ pub async fn run(
     // Login Start
     let offline_uuid = uuid::Uuid::from_u128({
         let s = format!("OfflinePlayer:{}", username);
-        s.bytes().fold(0u128, |acc, b| acc.wrapping_mul(131).wrapping_add(b as u128))
+        s.bytes().fold(0u128, |acc, b| {
+            acc.wrapping_mul(131).wrapping_add(b as u128)
+        })
     });
     let ls = ferrite_core::protocol::packets::login::LoginStart {
         username: username.to_string(),
@@ -88,14 +90,18 @@ pub async fn run(
             0x03 => {
                 // Set Compression
                 let threshold = read_var_int(&mut data)
-                    .ok_or(anyhow::anyhow!("bad compression threshold"))? as u32;
+                    .ok_or(anyhow::anyhow!("bad compression threshold"))?
+                    as u32;
                 tracing::info!("Compression enabled, threshold={}", threshold);
                 compression = Some(Compression { threshold });
             }
             0x02 => {
                 // Login Success
-                tracing::debug!("LoginSuccess raw data ({} bytes): {:?}",
-                    data.len(), &data[..data.len().min(64)]);
+                tracing::debug!(
+                    "LoginSuccess raw data ({} bytes): {:?}",
+                    data.len(),
+                    &data[..data.len().min(64)]
+                );
                 let s = LoginSuccess::decode(&mut data)
                     .ok_or(anyhow::anyhow!("failed to decode login success"))?;
                 tracing::info!("Logged in as {}", s.username);
@@ -103,8 +109,7 @@ pub async fn run(
             }
             0x01 => {
                 // Encryption Request
-                let (_server_id, pubkey_der, verify_token) =
-                    parse_encryption_request(&mut data)?;
+                let (_server_id, pubkey_der, verify_token) = parse_encryption_request(&mut data)?;
                 tracing::info!("Encryption request received");
 
                 let shared_secret: [u8; 16] = rand::random();
@@ -125,20 +130,22 @@ pub async fn run(
                 };
 
                 let mut resp = BytesMut::new();
-                write_var_into_buf(&mut resp, enc_secret.len() as i32);
+                write_var_int(&mut resp, enc_secret.len() as i32);
                 resp.extend_from_slice(&enc_secret);
-                write_var_into_buf(&mut resp, enc_token.len() as i32);
+                write_var_int(&mut resp, enc_token.len() as i32);
                 resp.extend_from_slice(&enc_token);
 
                 write_packet(&mut writer, 0x01, &resp, &compression, &mut None).await?;
                 tracing::info!("Encryption response sent");
 
-                enc_cipher = Some(
-                    AesCfb8Enc::new(&shared_secret.into(), &shared_secret.into())
-                );
-                dec_cipher = Some(
-                    AesCfb8Dec::new(&shared_secret.into(), &shared_secret.into())
-                );
+                enc_cipher = Some(AesCfb8Enc::new(
+                    &shared_secret.into(),
+                    &shared_secret.into(),
+                ));
+                dec_cipher = Some(AesCfb8Dec::new(
+                    &shared_secret.into(),
+                    &shared_secret.into(),
+                ));
                 tracing::info!("Encryption enabled");
             }
             0x00 => {
@@ -147,7 +154,11 @@ pub async fn run(
                 anyhow::bail!("Login rejected: {}", reason);
             }
             other => {
-                tracing::warn!("Unexpected login packet id=0x{:02x} ({} bytes)", other, data.len());
+                tracing::warn!(
+                    "Unexpected login packet id=0x{:02x} ({} bytes)",
+                    other,
+                    data.len()
+                );
                 // Don't break, continue reading
             }
         }
@@ -182,7 +193,14 @@ pub async fn run(
             particle_status: 0,
         };
         let payload = client_info.encode();
-        write_packet(&mut writer, ClientInformation::ID, &payload, &compression, &mut enc_cipher).await?;
+        write_packet(
+            &mut writer,
+            ClientInformation::ID,
+            &payload,
+            &compression,
+            &mut enc_cipher,
+        )
+        .await?;
         tracing::info!("Sent ClientInformation");
     }
 
@@ -191,7 +209,12 @@ pub async fn run(
     let mut attempts = 0u32;
     loop {
         tracing::info!("Config loop: waiting for packet...");
-        match tokio::time::timeout(std::time::Duration::from_secs(3), read_packet(&mut reader, &mut buf, &compression, &mut dec_cipher)).await {
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            read_packet(&mut reader, &mut buf, &compression, &mut dec_cipher),
+        )
+        .await
+        {
             Ok(Ok(())) => {
                 tracing::info!("Config loop got data (buf len={})", buf.len());
                 attempts = 0;
@@ -203,11 +226,25 @@ pub async fn run(
             Err(_timeout) => {
                 tracing::warn!("Config loop timeout (#{})", attempts + 1);
                 let mut peek = [0u8; 1];
-                match tokio::time::timeout(std::time::Duration::from_millis(100), reader.read(&mut peek)).await {
-                    Ok(Ok(0)) => { tracing::warn!("Connection closed by server"); return Ok(()); }
-                    Ok(Ok(n)) => { tracing::info!("Got {} bytes after timeout: {:02x?}", n, &peek[..n]); }
-                    Ok(Err(e)) => { tracing::error!("Peek error: {}", e); }
-                    Err(_) => { tracing::info!("No data available (connection idle)"); }
+                match tokio::time::timeout(
+                    std::time::Duration::from_millis(100),
+                    reader.read(&mut peek),
+                )
+                .await
+                {
+                    Ok(Ok(0)) => {
+                        tracing::warn!("Connection closed by server");
+                        return Ok(());
+                    }
+                    Ok(Ok(n)) => {
+                        tracing::info!("Got {} bytes after timeout: {:02x?}", n, &peek[..n]);
+                    }
+                    Ok(Err(e)) => {
+                        tracing::error!("Peek error: {}", e);
+                    }
+                    Err(_) => {
+                        tracing::info!("No data available (connection idle)");
+                    }
                 }
                 attempts += 1;
                 if attempts >= 10 {
@@ -225,25 +262,54 @@ pub async fn run(
             } else if id == FinishConfiguration::ID {
                 tracing::info!("Configuration finished, entering play state");
                 let payload = FinishConfigurationAcknowledged.encode();
-                write_packet(&mut writer, FinishConfigurationAcknowledged::ID, &payload, &compression, &mut enc_cipher).await?;
+                write_packet(
+                    &mut writer,
+                    FinishConfigurationAcknowledged::ID,
+                    &payload,
+                    &compression,
+                    &mut enc_cipher,
+                )
+                .await?;
                 run_play_loop(
-                    &mut reader, &mut writer, &mut buf, &compression,
-                    &mut enc_cipher, &mut dec_cipher, events, &mut cmd_rx,
+                    &mut reader,
+                    &mut writer,
+                    &mut buf,
+                    &compression,
+                    &mut enc_cipher,
+                    &mut dec_cipher,
+                    events,
+                    &mut cmd_rx,
                 )
                 .await?;
                 return Ok(());
             } else if id == ClientBoundKnownPacks::ID {
                 tracing::info!("ClientBoundKnownPacks received");
                 let payload = ServerBoundKnownPacks.encode();
-                write_packet(&mut writer, ServerBoundKnownPacks::ID, &payload, &compression, &mut enc_cipher).await?;
+                write_packet(
+                    &mut writer,
+                    ServerBoundKnownPacks::ID,
+                    &payload,
+                    &compression,
+                    &mut enc_cipher,
+                )
+                .await?;
                 tracing::info!("Sent ServerBoundKnownPacks");
             } else if id == ClientBoundPluginMessage::ID {
                 let msg = ClientBoundPluginMessage::decode(&mut data);
                 if let Some(m) = msg {
-                    tracing::info!("Plugin message: channel={}, data_len={}", m.channel, m.data.len());
+                    tracing::info!(
+                        "Plugin message: channel={}, data_len={}",
+                        m.channel,
+                        m.data.len()
+                    );
                 }
             } else {
-                tracing::warn!("Unhandled config packet id=0x{:02x} ({} bytes) data={:02x?}", id, data.len(), &data[..data.len().min(64)]);
+                tracing::warn!(
+                    "Unhandled config packet id=0x{:02x} ({} bytes) data={:02x?}",
+                    id,
+                    data.len(),
+                    &data[..data.len().min(64)]
+                );
             }
         }
     }
@@ -298,10 +364,11 @@ async fn run_play_loop(
             match id {
                 // Keep Alive
                 KeepAliveS2C::ID => {
-                    let ka = KeepAliveS2C::decode(&mut data)
-                        .ok_or(anyhow::anyhow!("bad keepalive"))?;
+                    let ka =
+                        KeepAliveS2C::decode(&mut data).ok_or(anyhow::anyhow!("bad keepalive"))?;
                     let payload = KeepAliveC2S { id: ka.id }.encode();
-                    write_packet(writer, KeepAliveC2S::ID, &payload, compression, enc_cipher).await?;
+                    write_packet(writer, KeepAliveC2S::ID, &payload, compression, enc_cipher)
+                        .await?;
                 }
                 // Login Play (Join Game)
                 0x2B => {
@@ -310,8 +377,17 @@ async fn run_play_loop(
                         let entity_id = data.get_i32();
                         let _hardcore = data.get_u8() != 0;
                         let game_mode = data.get_u8();
-                        let _ = events.send(NetworkEvent::LoginPlay { entity_id, game_mode }).await;
-                        tracing::info!("LoginPlay: entity_id={}, game_mode={}", entity_id, game_mode);
+                        let _ = events
+                            .send(NetworkEvent::LoginPlay {
+                                entity_id,
+                                game_mode,
+                            })
+                            .await;
+                        tracing::info!(
+                            "LoginPlay: entity_id={}, game_mode={}",
+                            entity_id,
+                            game_mode
+                        );
                     }
                 }
                 // Player Abilities
@@ -325,7 +401,9 @@ async fn run_play_loop(
                 // Synchronize Player Position
                 0x41 => {
                     tracing::info!("SyncPlayerPosition received ({} bytes)", data.len());
-                    if let Some(teleport_id) = ferrite_core::protocol::codec::read_var_int(&mut data) {
+                    if let Some(teleport_id) =
+                        ferrite_core::protocol::codec::read_var_int(&mut data)
+                    {
                         tracing::info!("Teleport ID: {}", teleport_id);
                         // Extract position and rotation
                         let x = data.get_f64();
@@ -336,11 +414,22 @@ async fn run_play_loop(
                         let _vel_z = data.get_f64();
                         let yaw = data.get_f32();
                         let pitch = data.get_f32();
-                        tracing::info!("Spawn pos: ({}, {}, {}), yaw={}, pitch={}", x, y, z, yaw, pitch);
+                        tracing::info!(
+                            "Spawn pos: ({}, {}, {}), yaw={}, pitch={}",
+                            x,
+                            y,
+                            z,
+                            yaw,
+                            pitch
+                        );
                         // Send teleport confirm (C→S Play 0x00)
                         let mut confirm_payload = BytesMut::new();
-                        ferrite_core::protocol::codec::write_var_int(&mut confirm_payload, teleport_id);
-                        write_packet(writer, 0x00, &confirm_payload, compression, enc_cipher).await?;
+                        ferrite_core::protocol::codec::write_var_int(
+                            &mut confirm_payload,
+                            teleport_id,
+                        );
+                        write_packet(writer, 0x00, &confirm_payload, compression, enc_cipher)
+                            .await?;
                         tracing::info!("Sent teleport confirm");
                         // Send player position and rotation (C→S Play 0x1E)
                         let mut pos_payload = BytesMut::new();
@@ -352,7 +441,7 @@ async fn run_play_loop(
                         pos_payload.put_u8(0u8);
                         write_packet(writer, 0x1E, &pos_payload, compression, enc_cipher).await?;
                         tracing::info!("Sent player position");
-                        
+
                         let _ = events.send(NetworkEvent::PlayerPosition(x, y, z)).await;
                     }
                 }
@@ -424,20 +513,16 @@ async fn read_encrypted_frame(
 
 // ── Compressed / raw frame decompression ──
 
-fn decompress_into(
-    frame: BytesMut,
-    buf: &mut BytesMut,
-    _comp: &Compression,
-) -> Result<()> {
+fn decompress_into(frame: BytesMut, buf: &mut BytesMut, _comp: &Compression) -> Result<()> {
     tracing::info!("decompress_into frame ({} bytes)", frame.len());
     // frame = VarInt(packet_length) + VarInt(data_length) + (zlib | raw)
     let mut cursor = frame.clone();
-    let _packet_len = read_var_int(&mut cursor)
-        .ok_or(anyhow::anyhow!("bad frame varint"))? as usize;
+    let _packet_len =
+        read_var_int(&mut cursor).ok_or(anyhow::anyhow!("bad frame varint"))? as usize;
     let _outer_header = frame.len() - cursor.len();
 
-    let data_length = read_var_int(&mut cursor)
-        .ok_or(anyhow::anyhow!("bad data_length varint"))? as usize;
+    let data_length =
+        read_var_int(&mut cursor).ok_or(anyhow::anyhow!("bad data_length varint"))? as usize;
     // frame bytes consumed so far
     let consumed = frame.len() - cursor.len();
 
@@ -447,12 +532,12 @@ fn decompress_into(
         let mut decompressed = vec![0u8; data_length];
         decoder.read_exact(&mut decompressed)?;
         // Write raw packet: VarInt(payload_len) + payload
-        write_var_into_buf(buf, decompressed.len() as i32);
+        write_var_int(buf, decompressed.len() as i32);
         buf.extend_from_slice(&decompressed);
     } else {
         // raw data
         let payload = &frame[consumed..];
-        write_var_into_buf(buf, payload.len() as i32);
+        write_var_int(buf, payload.len() as i32);
         buf.extend_from_slice(payload);
     }
     Ok(())
@@ -460,14 +545,13 @@ fn decompress_into(
 
 // ── Raw frame read (no compression, no encryption) ──
 
-async fn read_raw_frame(
-    reader: &mut OwnedReadHalf,
-    buf: &mut BytesMut,
-) -> Result<()> {
+async fn read_raw_frame(reader: &mut OwnedReadHalf, buf: &mut BytesMut) -> Result<()> {
     let mut raw_varint = [0u8; 5];
     let mut vi_len = 0;
     loop {
-        reader.read_exact(&mut raw_varint[vi_len..vi_len + 1]).await?;
+        reader
+            .read_exact(&mut raw_varint[vi_len..vi_len + 1])
+            .await?;
         vi_len += 1;
         if raw_varint[vi_len - 1] & 0x80 == 0 {
             break;
@@ -496,7 +580,6 @@ fn parse_encryption_request(data: &mut BytesMut) -> Result<(String, Vec<u8>, Vec
     Ok((server_id, pubkey, token))
 }
 
-
 // ── Unified packet write (raw / compressed + encrypted) ──
 
 async fn write_packet(
@@ -507,7 +590,7 @@ async fn write_packet(
     enc_cipher: &mut Option<AesCfb8Enc>,
 ) -> Result<()> {
     let raw_payload = {
-        let mut p = Vec::with_capacity(ferrite_core::protocol::codec::var_int_len(id) + data.len());
+        let mut p = Vec::with_capacity(var_int_len(id) + data.len());
         ferrite_core::protocol::codec::write_var_int(&mut p, id);
         p.extend_from_slice(data);
         p
@@ -529,8 +612,13 @@ async fn write_packet(
     }
 
     writer.write_all(&frame).await?;
-    tracing::info!("Wrote {} bytes (id=0x{:02x}, compressed={}, encrypted={})",
-        frame.len(), id, compression.is_some(), enc_cipher.is_some());
+    tracing::info!(
+        "Wrote {} bytes (id=0x{:02x}, compressed={}, encrypted={})",
+        frame.len(),
+        id,
+        compression.is_some(),
+        enc_cipher.is_some()
+    );
     Ok(())
 }
 
@@ -554,7 +642,7 @@ fn encode_compressed_frame(raw_payload: &[u8], comp: &Compression) -> BytesMut {
     } else {
         // Send raw, with data_length = 0
         let mut frame = BytesMut::new();
-        let data_header_len = ferrite_core::protocol::codec::var_int_len(0);
+        let data_header_len = var_int_len(0);
         let total = data_header_len + raw_payload.len();
         ferrite_core::protocol::codec::write_var_int(&mut frame, total as i32);
         ferrite_core::protocol::codec::write_var_int(&mut frame, 0);
@@ -562,11 +650,3 @@ fn encode_compressed_frame(raw_payload: &[u8], comp: &Compression) -> BytesMut {
         frame
     }
 }
-
-// ── Helpers ──
-
-fn parse_packets(buf: &mut BytesMut) -> Option<(i32, BytesMut)> {
-    ferrite_core::protocol::codec::parse_packets(buf)
-}
-
-

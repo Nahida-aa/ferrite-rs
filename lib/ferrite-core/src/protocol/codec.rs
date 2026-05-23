@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+use bytes::{Buf, BufMut, BytesMut};
 
 pub fn parse_packets(buf: &mut BytesMut) -> Option<(i32, BytesMut)> {
     let mut tmp = buf.clone();
@@ -46,7 +46,7 @@ pub fn read_var_int(buf: &mut impl bytes::Buf) -> Option<i32> {
     Some(value as i32)
 }
 
-pub fn write_var_int(buf: &mut impl bytes::BufMut, value: i32) {
+pub fn write_var_int(buf: &mut impl BufMut, value: i32) {
     let mut val = value as u32;
     loop {
         if val & 0xFFFFFF80 == 0 {
@@ -54,18 +54,6 @@ pub fn write_var_int(buf: &mut impl bytes::BufMut, value: i32) {
             return;
         }
         buf.put_u8((val as u8) | 0x80);
-        val >>= 7;
-    }
-}
-
-fn var_int_len(value: i32) -> usize {
-    let mut val = value as u32;
-    let mut len = 0;
-    loop {
-        len += 1;
-        if val & 0xFFFFFF80 == 0 {
-            return len;
-        }
         val >>= 7;
     }
 }
