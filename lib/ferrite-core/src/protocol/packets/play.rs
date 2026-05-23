@@ -23,7 +23,7 @@ pub struct KeepAliveC2S {
 }
 
 impl KeepAliveC2S {
-    pub const ID: i32 = 0x17;
+    pub const ID: i32 = 0x1B;
 
     pub fn encode(&self) -> BytesMut {
         let mut buf = BytesMut::new();

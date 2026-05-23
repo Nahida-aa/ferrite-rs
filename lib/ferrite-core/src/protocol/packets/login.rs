@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+use bytes::{BytesMut, Buf};
 
 use crate::protocol::codec::{read_string, read_uuid, write_string, write_uuid};
 use uuid::Uuid;
@@ -32,21 +32,19 @@ impl LoginSuccess {
 
     pub fn decode(buf: &mut BytesMut) -> Option<Self> {
         let uuid = read_uuid(buf)?;
-        let username = read_string(buf, 16)?;
+        let username = read_string(buf, 128)?;
 
         let prop_count = crate::protocol::codec::read_var_int(buf)? as usize;
         let mut properties = Vec::with_capacity(prop_count);
         for _ in 0..prop_count {
             let name = read_string(buf, 32767)?;
             let value = read_string(buf, 32767)?;
-            let signature = if buf.len() > 0 {
-                // Check if there's a boolean for has_signature
-                // This is simplified - in practice need to parse properly
-                None
-            } else {
-                None
-            };
-            properties.push((name, value, signature));
+            let has_sig = buf.len() > 0 && buf[0] != 0;
+            if has_sig {
+                buf.advance(1); // skip true byte
+                let _signature = read_string(buf, 32767)?;
+            }
+            properties.push((name, value, None));
         }
 
         Some(Self {

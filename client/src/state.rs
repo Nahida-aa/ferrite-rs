@@ -24,6 +24,8 @@ pub struct AppState {
     network: Option<(Network, Option<ServerHandle>)>,
     connected: bool,
     connecting: bool,
+    last_error: Option<String>,
+    player_pos: Option<(f64, f64, f64)>,
     actions: Vec<Action>,
 }
 
@@ -44,6 +46,8 @@ impl AppState {
             network: None,
             connected: false,
             connecting: false,
+            last_error: None,
+            player_pos: None,
             actions: Vec::new(),
         })
     }
@@ -148,7 +152,7 @@ impl AppState {
         );
 
         if let Some(r) = &mut self.renderer {
-            r.render_egui(&self.egui_ctx, &full_output);
+            r.render(&self.egui_ctx, &full_output, self.connected);
         }
     }
 
@@ -166,6 +170,7 @@ impl AppState {
         if self.connecting || self.connected {
             return;
         }
+        self.last_error = None;
 
         let server = if with_server {
             match ServerHandle::spawn() {
@@ -192,6 +197,7 @@ impl AppState {
         self.network = None;
         self.connecting = false;
         self.connected = false;
+        self.player_pos = None;
     }
 
     fn poll_network(&mut self) {
@@ -218,7 +224,11 @@ impl AppState {
             }
             Some(NetworkEvent::Disconnected(r)) => {
                 tracing::info!("Disconnected: {r}");
+                self.last_error = Some(r);
                 self.disconnect();
+            }
+            Some(NetworkEvent::PlayerPosition(x, y, z)) => {
+                self.player_pos = Some((x, y, z));
             }
             None => {}
         }
@@ -242,11 +252,16 @@ impl AppState {
                 ui.add_space(20.0);
 
                 if ui.button("Single Player").clicked() {
-                    self.actions.push(Action::Connect("127.0.0.1".into(), true));
+                    self.actions.push(Action::Connect("127.0.0.1:25565".into(), true));
                 }
                 if ui.button("Multi Player").clicked() {}
                 if ui.button("Quit").clicked() {
                     self.actions.push(Action::Quit);
+                }
+
+                if let Some(err) = &self.last_error {
+                    ui.add_space(20.0);
+                    ui.colored_label(egui::Color32::RED, format!("Error: {}", err));
                 }
             });
         });
@@ -264,13 +279,42 @@ impl AppState {
     }
 
     fn render_ingame(&self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("hud").show(ctx, |ui| {
+        egui::TopBottomPanel::top("hud")
+            .frame(egui::Frame::none().fill(egui::Color32::from_black_alpha(150)).inner_margin(8.0))
+            .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.label("Ferrite");
+                ui.visuals_mut().override_text_color = Some(egui::Color32::WHITE);
+                ui.label(egui::RichText::new("Ferrite").strong());
+                if let Some((x, y, z)) = self.player_pos {
+                    ui.separator();
+                    ui.label(format!("XYZ: {:.1} / {:.1} / {:.1}", x, y, z));
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.colored_label(egui::Color32::GREEN, "● Connected");
                 });
             });
+        });
+
+        // Draw crosshair
+        egui::CentralPanel::default().frame(egui::Frame::none()).show(ctx, |ui| {
+            let rect = ui.max_rect();
+            let center = rect.center();
+            let color = egui::Color32::from_white_alpha(200);
+            let stroke = egui::Stroke::new(2.0, color);
+            let len = 10.0;
+            
+            ui.painter().line_segment([center - egui::vec2(len, 0.0), center + egui::vec2(len, 0.0)], stroke);
+            ui.painter().line_segment([center - egui::vec2(0.0, len), center + egui::vec2(0.0, len)], stroke);
+            
+            // Draw placeholder health bar at the bottom
+            let health_center = egui::pos2(center.x, rect.max.y - 40.0);
+            ui.painter().text(
+                health_center,
+                egui::Align2::CENTER_CENTER,
+                "♥♥♥♥♥♥♥♥♥♥",
+                egui::FontId::proportional(24.0),
+                egui::Color32::RED,
+            );
         });
     }
 }

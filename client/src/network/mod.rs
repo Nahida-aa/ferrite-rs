@@ -8,6 +8,7 @@ use tokio::sync::mpsc;
 pub enum NetworkEvent {
     Connected,
     Disconnected(String),
+    PlayerPosition(f64, f64, f64),
 }
 
 pub struct Network {
