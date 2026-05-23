@@ -105,7 +105,9 @@ fn ui_system(
     hud_query: Query<Entity, With<HUDUI>>,
     pause_query: Query<Entity, With<PauseMenuUI>>,
 ) {
-    if net.connected {
+    let is_playing = net.connected;
+
+    if is_playing {
         for entity in menu_query.iter() {
             commands.entity(entity).despawn_recursive();
         }
@@ -134,6 +136,7 @@ fn ui_system(
         for entity in hud_query.iter() {
             commands.entity(entity).despawn_recursive();
         }
+        // nothing special to clean up for menu
         if menu_query.is_empty() {
             menu::spawn_menu(&mut commands, &ui);
         }
@@ -165,6 +168,10 @@ fn button_system(
                     let label = text.sections.first().map(|s| &s.value);
                     match label {
                         Some(v) if v == "Single Player" => {
+                            pending.0.push(("127.0.0.1:25565".to_string(), true));
+                        }
+                        Some(v) if v == "Demo World" => {
+                            // Start a real local server and connect to it (single-click demo)
                             pending.0.push(("127.0.0.1:25565".to_string(), true));
                         }
                         Some(v) if v == "Quit" => std::process::exit(0),

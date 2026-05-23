@@ -25,6 +25,7 @@ pub(super) fn spawn_menu(commands: &mut Commands, ui: &UiRes) {
                     ..default()
                 },
             ));
+            // larger gap after title
             parent.spawn(NodeBundle {
                 style: Style {
                     height: Val::Px(30.0),
@@ -32,7 +33,17 @@ pub(super) fn spawn_menu(commands: &mut Commands, ui: &UiRes) {
                 },
                 ..default()
             });
+
+            // Buttons with uniform 10px spacing
             btn(parent, "Single Player");
+            parent.spawn(NodeBundle {
+                style: Style {
+                    height: Val::Px(10.0),
+                    ..default()
+                },
+                ..default()
+            });
+            btn(parent, "Demo World");
             parent.spawn(NodeBundle {
                 style: Style {
                     height: Val::Px(10.0),
