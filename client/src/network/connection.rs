@@ -1,9 +1,9 @@
-use std::io::{Read, Write};
+use std::io::Read;
 
 use aes::Aes128;
 use anyhow::Result;
 use bytes::{Buf, BytesMut};
-use cfb_mode::Cfb8;
+use cfb8::Cfb8;
 use cipher::{KeyIvInit, StreamCipher};
 use ferrite_core::protocol::codec::read_var_int;
 use ferrite_core::protocol::packets::config::{
