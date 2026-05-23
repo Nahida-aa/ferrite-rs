@@ -1,0 +1,102 @@
+2026-05-23T13:39:44.647470Z  INFO ferrumc: Starting server...
+2026-05-23T13:39:44.647670Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:39:44.648836Z  INFO ferrumc::launch: No overworld spawn chunk found, generating spawn chunks...
+2026-05-23T13:39:45.500949Z  INFO ferrumc::launch: Finished generating spawn chunks in 852.099234ms
+2026-05-23T13:39:45.501836Z  INFO ferrumc::game_loop: Server is ready in 854.65 ms
+2026-05-23T13:39:45.832865Z  INFO ferrumc_dashboard: Dashboard listening on http://0.0.0.0:9000
+2026-05-23T13:39:55.759453Z  INFO ferrumc: Starting server...
+2026-05-23T13:39:55.759549Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:39:55.761781Z  INFO ferrumc::game_loop: Server is ready in 2.53 ms
+2026-05-23T13:39:56.034714Z  INFO ferrumc_dashboard: Dashboard listening on http://0.0.0.0:9000
+2026-05-23T13:40:05.303728Z  INFO ferrumc: Starting server...
+2026-05-23T13:40:05.303805Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:40:05.306221Z  INFO ferrumc::game_loop: Server is ready in 2.77 ms
+2026-05-23T13:40:05.569241Z  INFO ferrumc_dashboard: Dashboard listening on http://0.0.0.0:9000
+2026-05-23T13:40:08.308867Z ERROR conn{addy=127.0.0.1:47734}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T13:45:50.245738Z  INFO ferrumc: Starting server...
+2026-05-23T13:45:50.245814Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:45:50.249736Z  INFO ferrumc::game_loop: Server is ready in 4.17 ms
+2026-05-23T13:45:50.538653Z  INFO ferrumc_dashboard: Dashboard listening on http://0.0.0.0:9000
+2026-05-23T13:45:52.282775Z ERROR conn{addy=127.0.0.1:56066}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T13:51:05.463674Z  INFO ferrumc: Starting server...
+2026-05-23T13:51:05.463744Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:51:05.468248Z  INFO ferrumc::game_loop: Server is ready in 5.22 ms
+2026-05-23T13:51:42.393698Z  INFO ferrumc: Starting server...
+2026-05-23T13:51:42.393764Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:51:42.396292Z  INFO ferrumc::game_loop: Server is ready in 2.81 ms
+2026-05-23T13:51:42.491707Z ERROR conn{addy=127.0.0.1:57014}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T13:52:20.231729Z  INFO ferrumc: Starting server...
+2026-05-23T13:52:20.231796Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:52:20.234043Z  INFO ferrumc::game_loop: Server is ready in 2.54 ms
+2026-05-23T13:52:20.329959Z ERROR conn{addy=127.0.0.1:53342}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T13:52:58.229145Z  INFO ferrumc: Starting server...
+2026-05-23T13:52:58.229232Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:52:58.231990Z  INFO ferrumc::game_loop: Server is ready in 3.10 ms
+2026-05-23T13:52:58.326519Z ERROR conn{addy=127.0.0.1:36002}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T13:52:58.330345Z  WARN conn{addy=127.0.0.1:36018}: ferrumc_net::connection: Client version mismatch: 770 (server 772)
+2026-05-23T13:53:38.645126Z  INFO ferrumc: Starting server...
+2026-05-23T13:53:38.645207Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:53:38.648215Z  INFO ferrumc::game_loop: Server is ready in 3.31 ms
+2026-05-23T13:53:38.742838Z ERROR conn{addy=127.0.0.1:47372}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T13:53:38.746488Z ERROR conn{addy=127.0.0.1:47380}: ferrumc_net::connection: Unhandled handshake error: Decoder Error: IO error: failed to fill whole buffer
+2026-05-23T13:55:33.812383Z  INFO ferrumc: Starting server...
+2026-05-23T13:55:33.812469Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:55:33.816385Z  INFO ferrumc::game_loop: Server is ready in 3.83 ms
+2026-05-23T13:55:33.903925Z ERROR conn{addy=127.0.0.1:47984}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T13:55:33.908624Z ERROR conn{addy=127.0.0.1:48000}: ferrumc_net::connection: Unhandled handshake error: Decoder Error: IO error: failed to fill whole buffer
+2026-05-23T13:57:46.933029Z  INFO ferrumc: Starting server...
+2026-05-23T13:57:46.933099Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:57:46.936608Z  INFO ferrumc::game_loop: Server is ready in 3.76 ms
+2026-05-23T13:57:47.025250Z ERROR conn{addy=127.0.0.1:54370}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T13:57:47.031386Z ERROR conn{addy=127.0.0.1:54380}: ferrumc_net::connection: Unhandled handshake error: Decoder Error: IO error: failed to fill whole buffer
+2026-05-23T13:59:27.451862Z  INFO ferrumc: Starting server...
+2026-05-23T13:59:27.452003Z  INFO ferrumc: Server setup complete.
+2026-05-23T13:59:27.456475Z  INFO ferrumc::game_loop: Server is ready in 5.26 ms
+2026-05-23T13:59:27.540750Z ERROR conn{addy=127.0.0.1:58814}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T13:59:27.562840Z ERROR conn{addy=127.0.0.1:58816}: ferrumc_net::connection: Unhandled handshake error: VarInt Error: Connection reset by peer (os error 104)
+2026-05-23T14:01:19.662148Z  INFO ferrumc: Starting server...
+2026-05-23T14:01:19.662431Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:01:19.671921Z  INFO ferrumc::game_loop: Server is ready in 10.80 ms
+2026-05-23T14:01:19.744678Z ERROR conn{addy=127.0.0.1:50362}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:01:19.757090Z ERROR conn{addy=127.0.0.1:50366}: ferrumc_net::connection: Unhandled handshake error: VarInt Error: Connection reset by peer (os error 104)
+2026-05-23T14:03:43.075046Z  INFO ferrumc: Starting server...
+2026-05-23T14:03:43.075214Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:03:43.079770Z  INFO ferrumc::game_loop: Server is ready in 5.36 ms
+2026-05-23T14:03:43.162553Z ERROR conn{addy=127.0.0.1:54078}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:03:43.193195Z ERROR conn{addy=127.0.0.1:54082}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:04:28.130309Z  INFO ferrumc: Starting server...
+2026-05-23T14:04:28.130681Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:04:28.134039Z  INFO ferrumc::game_loop: Server is ready in 3.91 ms
+2026-05-23T14:04:28.228727Z ERROR conn{addy=127.0.0.1:46346}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:04:28.249024Z ERROR conn{addy=127.0.0.1:46354}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:06:35.100523Z  INFO ferrumc: Starting server...
+2026-05-23T14:06:35.100695Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:06:35.105168Z  INFO ferrumc::game_loop: Server is ready in 5.49 ms
+2026-05-23T14:06:35.184398Z ERROR conn{addy=127.0.0.1:57842}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:06:35.432126Z  INFO ferrumc_dashboard: Dashboard listening on http://0.0.0.0:9000
+2026-05-23T14:06:45.186610Z ERROR conn{addy=127.0.0.1:57854}: ferrumc_net::connection: Handshake timed out: Elapsed(())
+2026-05-23T14:07:25.328113Z  INFO ferrumc: Starting server...
+2026-05-23T14:07:25.328176Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:07:25.330325Z  INFO ferrumc::game_loop: Server is ready in 2.40 ms
+2026-05-23T14:07:25.426810Z ERROR conn{addy=127.0.0.1:56214}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:07:25.451362Z ERROR conn{addy=127.0.0.1:56216}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:07:55.514129Z  INFO ferrumc: Starting server...
+2026-05-23T14:07:55.514200Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:07:55.516685Z  INFO ferrumc::game_loop: Server is ready in 2.75 ms
+2026-05-23T14:07:55.612406Z ERROR conn{addy=127.0.0.1:45530}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:07:55.644301Z ERROR conn{addy=127.0.0.1:45536}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:08:45.206536Z  INFO ferrumc: Starting setup...
+2026-05-23T14:08:45.206616Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:09:04.425829Z  INFO ferrumc: Starting server...
+2026-05-23T14:09:04.425895Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:09:04.428294Z  INFO ferrumc::game_loop: Server is ready in 2.65 ms
+2026-05-23T14:09:04.528616Z ERROR conn{addy=127.0.0.1:45500}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:09:04.572623Z ERROR conn{addy=127.0.0.1:45512}: ferrumc_net::connection: Unhandled handshake error: Connection Dropped
+2026-05-23T14:09:51.082475Z  INFO ferrumc: Starting server...
+2026-05-23T14:09:51.082556Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:09:51.084709Z  INFO ferrumc::game_loop: Server is ready in 2.42 ms
+2026-05-23T14:09:51.367937Z  INFO ferrumc_dashboard: Dashboard listening on http://0.0.0.0:9000
+2026-05-23T14:10:27.451307Z  INFO ferrumc: Starting server...
+2026-05-23T14:10:27.451516Z  INFO ferrumc: Server setup complete.
+2026-05-23T14:10:27.454308Z  INFO ferrumc::game_loop: Server is ready in 3.26 ms
+2026-05-23T14:10:27.786589Z  INFO ferrumc_dashboard: Dashboard listening on http://0.0.0.0:9000
