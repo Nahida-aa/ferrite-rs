@@ -92,3 +92,59 @@ pub fn write_uuid(buf: &mut BytesMut, uuid: uuid::Uuid) {
     buf.put_u64(most);
     buf.put_u64(least);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::BytesMut;
+
+    #[test]
+    fn var_int_roundtrip() {
+        let cases = [0, 1, 2, 127, 128, 255, 300, 16384, i32::MAX, -1, i32::MIN];
+        for value in cases {
+            let mut buf = BytesMut::new();
+            write_var_int(&mut buf, value);
+            let decoded = read_var_int(&mut buf).expect("varint should decode");
+            assert_eq!(decoded, value);
+            assert!(buf.is_empty());
+        }
+    }
+
+    #[test]
+    fn string_roundtrip() {
+        let mut buf = BytesMut::new();
+        write_string(&mut buf, "ferrite");
+
+        let decoded = read_string(&mut buf, 32).expect("string should decode");
+        assert_eq!(decoded, "ferrite");
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn parse_packet_frame_roundtrip() {
+        let mut frame = BytesMut::new();
+        write_var_int(&mut frame, 0x2A);
+        write_var_int(&mut frame, 12345);
+
+        let mut outer = BytesMut::new();
+        write_var_int(&mut outer, frame.len() as i32);
+        outer.extend_from_slice(&frame);
+
+        let (id, mut payload) = parse_packets(&mut outer).expect("packet should parse");
+        assert_eq!(id, 0x2A);
+        assert_eq!(read_var_int(&mut payload), Some(12345));
+        assert!(payload.is_empty());
+        assert!(outer.is_empty());
+    }
+
+    #[test]
+    fn uuid_roundtrip() {
+        let uuid = uuid::Uuid::from_u128(0x1234567890abcdef1234567890abcdef);
+        let mut buf = BytesMut::new();
+        write_uuid(&mut buf, uuid);
+
+        let decoded = read_uuid(&mut buf).expect("uuid should decode");
+        assert_eq!(decoded, uuid);
+        assert!(buf.is_empty());
+    }
+}
