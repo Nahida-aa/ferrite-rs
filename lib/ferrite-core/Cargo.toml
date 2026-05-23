@@ -1,0 +1,14 @@
+[package]
+name = "ferrite-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy_ecs = { version = "0.14", default-features = false }
+tokio = { version = "1", features = ["net", "io-util"] }
+bytes = "1"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tracing = "0.1"
+uuid = { version = "1", features = ["serde"] }
+glam = "0.29"
