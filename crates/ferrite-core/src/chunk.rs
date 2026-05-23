@@ -3,10 +3,12 @@ use crate::block::BlockState;
 pub const SECTION_HEIGHT: usize = 16;
 pub const CHUNK_WIDTH: usize = 16;
 
+#[derive(Debug, Clone)]
 pub struct Chunk {
     pub sections: Vec<ChunkSection>,
 }
 
+#[derive(Debug, Clone)]
 pub struct ChunkSection {
     pub blocks: Vec<BlockState>,
 }

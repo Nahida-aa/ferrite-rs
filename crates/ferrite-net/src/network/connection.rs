@@ -147,6 +147,32 @@ pub async fn run(
                     .unwrap_or_else(|| format!("<decode error: {} bytes>", data.len()));
                 anyhow::bail!("Login rejected: {}", reason);
             }
+            0x27 => {
+                // Chunk Data (minimal handling): read chunk coords and create a simple chunk
+                // Format: chunk_x(i32), chunk_z(i32), full_chunk(u8), primary_bit_mask(varint), data_length(varint), payload
+                if data.len() >= 9 {
+                    let x = data.get_i32();
+                    let z = data.get_i32();
+                    let _full = data.get_u8() != 0;
+                    let _mask = read_var_int(&mut data).unwrap_or(0);
+                    // skip remaining payload - create a simple flat chunk instead
+                    let mut sections = Vec::new();
+                    // create 16 sections (world height 256)
+                    for si in 0..16 {
+                        let mut sec = ferrite_core::chunk::ChunkSection::new();
+                        // fill lowest section with solid blocks to form ground at y=1
+                        if si == 0 {
+                            for b in sec.blocks.iter_mut() {
+                                *b = ferrite_core::block::BlockState::from_raw(1);
+                            }
+                        }
+                        sections.push(sec);
+                    }
+                    let chunk = ferrite_core::chunk::Chunk { sections };
+                    let _ = events.send(NetworkEvent::ChunkData { x, z, chunk }).await;
+                    tracing::info!("ChunkData stubbed for chunk ({},{})", x, z);
+                }
+            }
             other => {
                 tracing::warn!(
                     "Unexpected login packet id=0x{:02x} ({} bytes)",

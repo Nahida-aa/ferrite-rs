@@ -35,7 +35,15 @@ pub enum NetworkEvent {
     Connected,
     Disconnected(String),
     PlayerPosition(f64, f64, f64),
-    LoginPlay { entity_id: i32, game_mode: u8 },
+    LoginPlay {
+        entity_id: i32,
+        game_mode: u8,
+    },
+    ChunkData {
+        x: i32,
+        z: i32,
+        chunk: ferrite_core::chunk::Chunk,
+    },
 }
 
 pub struct NetworkPlugin;
@@ -91,6 +99,9 @@ fn drain_network_events_system(
                     entity_id,
                     game_mode,
                 });
+            }
+            Ok(Some(NetMsg::ChunkData { x, z, chunk })) => {
+                network_events.send(NetworkEvent::ChunkData { x, z, chunk });
             }
             Ok(None) => break,
             Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
@@ -168,6 +179,55 @@ fn handle_network_events_system(
                 tracing::info!("PlayerInfo: entity {} game mode {}", entity_id, game_mode);
                 info.entity_id = Some(*entity_id);
                 info.game_mode = Some(*game_mode);
+            }
+            NetworkEvent::ChunkData { x, z, chunk } => {
+                tracing::info!("Spawning chunk at ({},{})", x, z);
+                // simple spawn: for each column spawn a single cube at the highest non-air block
+                let base_x = (*x as f32) * 16.0;
+                let base_z = (*z as f32) * 16.0;
+                for cx in 0..16usize {
+                    for cz in 0..16usize {
+                        // find highest non-air block
+                        let mut found_y: Option<i32> = None;
+                        for (si, section) in chunk.sections.iter().enumerate().rev() {
+                            for local_y in (0..ferrite_core::chunk::SECTION_HEIGHT).rev() {
+                                let idx = local_y
+                                    * ferrite_core::chunk::CHUNK_WIDTH
+                                    * ferrite_core::chunk::CHUNK_WIDTH
+                                    + cz * ferrite_core::chunk::CHUNK_WIDTH
+                                    + cx;
+                                if let Some(bs) = section.blocks.get(idx) {
+                                    // treat 0 as air
+                                    let is_air = *bs == ferrite_core::block::BlockState::AIR;
+                                    if !is_air {
+                                        let y = si as i32
+                                            * ferrite_core::chunk::SECTION_HEIGHT as i32
+                                            + local_y as i32;
+                                        found_y = Some(y);
+                                        break;
+                                    }
+                                }
+                            }
+                            if found_y.is_some() {
+                                break;
+                            }
+                        }
+                        if let Some(y) = found_y {
+                            let world_x = base_x + cx as f32 + 0.5;
+                            let world_y = y as f32 + 0.5;
+                            let world_z = base_z + cz as f32 + 0.5;
+                            commands.spawn(PbrBundle {
+                                mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+                                material: materials.add(StandardMaterial {
+                                    base_color: Color::srgb(0.6, 0.4, 0.2),
+                                    ..default()
+                                }),
+                                transform: Transform::from_xyz(world_x, world_y, world_z),
+                                ..default()
+                            });
+                        }
+                    }
+                }
             }
         }
     }

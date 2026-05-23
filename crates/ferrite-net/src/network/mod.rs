@@ -9,7 +9,15 @@ pub enum NetworkEvent {
     Connected,
     Disconnected(String),
     PlayerPosition(f64, f64, f64),
-    LoginPlay { entity_id: i32, game_mode: u8 },
+    LoginPlay {
+        entity_id: i32,
+        game_mode: u8,
+    },
+    ChunkData {
+        x: i32,
+        z: i32,
+        chunk: ferrite_core::chunk::Chunk,
+    },
 }
 
 #[derive(Debug)]
