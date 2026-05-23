@@ -1,60 +1,134 @@
 use anyhow::Result;
+use bevy::prelude::*;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::window::Window;
 
-use crate::network::{Network, NetworkEvent};
+use crate::network::{Network, NetworkEvent as NetMsg};
 use crate::render::Renderer;
 use crate::server::ServerHandle;
 
-#[derive(Debug)]
-enum Action {
-    Connect(String, bool),
-    Quit,
+// ── Bevy Resources (data that will live in the ECS World) ──
+
+#[derive(Resource)]
+struct NetworkRes {
+    inner: Option<(Network, Option<ServerHandle>)>,
+    connected: bool,
+    connecting: bool,
 }
+
+#[derive(Resource)]
+struct EcsRuntime(Runtime);
+
+#[derive(Resource)]
+struct PlayerRes {
+    position: Option<(f64, f64, f64)>,
+}
+
+#[derive(Resource)]
+struct UiRes {
+    last_error: Option<String>,
+}
+
+// ── Systems ──
+
+fn poll_network_system(
+    mut net: ResMut<NetworkRes>,
+    mut player: ResMut<PlayerRes>,
+    mut ui: ResMut<UiRes>,
+) {
+    let event = {
+        let (net_inner, _) = match &mut net.inner {
+            Some(n) => n,
+            None => return,
+        };
+        match net_inner.try_recv() {
+            Ok(Some(e)) => Some(e),
+            Ok(None) => None,
+            Err(mpsc::error::TryRecvError::Disconnected) => {
+                tracing::info!("Network task ended");
+                net.inner = None;
+                net.connected = false;
+                net.connecting = false;
+                player.position = None;
+                return;
+            }
+            Err(mpsc::error::TryRecvError::Empty) => None,
+        }
+    };
+    match event {
+        Some(NetMsg::Connected) => {
+            tracing::info!("Connected!");
+            net.connecting = false;
+            net.connected = true;
+        }
+        Some(NetMsg::Disconnected(r)) => {
+            tracing::info!("Disconnected: {r}");
+            ui.last_error = Some(r);
+            net.inner = None;
+            net.connected = false;
+            net.connecting = false;
+            player.position = None;
+        }
+        Some(NetMsg::PlayerPosition(x, y, z)) => {
+            player.position = Some((x, y, z));
+        }
+        None => {}
+    }
+}
+
+// ── AppState (temporary shell around World + winit) ──
 
 pub struct AppState {
     window: Option<Window>,
     renderer: Option<Renderer>,
     egui_ctx: egui::Context,
     egui_state: Option<egui_winit::State>,
-    runtime: Runtime,
-    network: Option<(Network, Option<ServerHandle>)>,
-    connected: bool,
-    connecting: bool,
-    last_error: Option<String>,
-    player_pos: Option<(f64, f64, f64)>,
-    actions: Vec<Action>,
+
+    world: World,
+    schedule: Schedule,
+
+    // egui closures can't borrow self, so buffer actions here
+    pending_connect: Vec<(String, bool)>,
 }
 
 impl AppState {
     pub fn queue_connect(&mut self, address: String, with_server: bool) {
-        self.actions.push(Action::Connect(address, with_server));
+        self.pending_connect.push((address, with_server));
     }
 
     pub fn new() -> Result<Self> {
-        let runtime = Runtime::new()?;
+        let mut world = World::new();
+
+        world.insert_resource(NetworkRes {
+            inner: None,
+            connected: false,
+            connecting: false,
+        });
+        world.insert_resource(PlayerRes { position: None });
+        world.insert_resource(UiRes { last_error: None });
+        world.insert_resource(EcsRuntime(Runtime::new()?));
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(poll_network_system);
+
         let egui_ctx = egui::Context::default();
         Ok(Self {
             window: None,
             renderer: None,
             egui_ctx,
             egui_state: None,
-            runtime,
-            network: None,
-            connected: false,
-            connecting: false,
-            last_error: None,
-            player_pos: None,
-            actions: Vec::new(),
+            world,
+            schedule,
+            pending_connect: Vec::new(),
         })
     }
 
     pub fn handle_event(
         &mut self,
-        event: Event<()>,
+        event: winit::event::Event<()>,
         target: &EventLoopWindowTarget<()>,
     ) {
         target.set_control_flow(winit::event_loop::ControlFlow::Poll);
@@ -118,9 +192,25 @@ impl AppState {
     }
 
     fn on_redraw(&mut self) {
-        self.poll_network();
-        self.process_actions();
+        // 1. Process pending connections (from egui button clicks)
+        let connects = std::mem::take(&mut self.pending_connect);
+        if !connects.is_empty() {
+            let runtime_handle = self.world.resource::<EcsRuntime>().0.handle().clone();
+            for (addr, sv) in connects {
+                connect_to_server(&mut self.world, &runtime_handle, &addr, sv);
+            }
+        }
 
+        // 2. Run ECS schedule (poll network, etc.)
+        self.schedule.run(&mut self.world);
+
+        // 3. Read state for UI rendering
+        let connected = self.world.resource::<NetworkRes>().connected;
+        let connecting = self.world.resource::<NetworkRes>().connecting;
+        let player_pos = self.world.resource::<PlayerRes>().position;
+        let last_error = self.world.resource::<UiRes>().last_error.clone();
+
+        // 4. Render egui
         let raw_input = {
             let w = match &self.window {
                 Some(w) => w,
@@ -134,8 +224,9 @@ impl AppState {
         };
 
         let egui_ctx = self.egui_ctx.clone();
+        let connects = &mut self.pending_connect;
         let mut full_output = egui_ctx.run(raw_input, |ctx| {
-            self.render_ui(ctx);
+            render_ui(ctx, connected, connecting, player_pos, &last_error, connects);
         });
 
         let Some(window) = &self.window else { return };
@@ -151,170 +242,141 @@ impl AppState {
             std::mem::take(&mut full_output.platform_output),
         );
 
+        // 5. Render 3D
         if let Some(r) = &mut self.renderer {
-            r.render(&self.egui_ctx, &full_output, self.connected);
+            r.render(&self.egui_ctx, &full_output, connected);
         }
     }
+}
 
-    fn process_actions(&mut self) {
-        let actions: Vec<Action> = self.actions.drain(..).collect();
-        for action in actions {
-            match action {
-                Action::Connect(addr, sv) => self.do_connect(&addr, sv),
-                Action::Quit => {}
-            }
-        }
-    }
+// ── Connection helper ──
 
-    fn do_connect(&mut self, address: &str, with_server: bool) {
-        if self.connecting || self.connected {
+fn connect_to_server(
+    world: &mut World,
+    runtime_handle: &tokio::runtime::Handle,
+    address: &str,
+    start_server: bool,
+) {
+    {
+        let net = world.resource::<NetworkRes>();
+        if net.connecting || net.connected {
             return;
         }
-        self.last_error = None;
-
-        let server = if with_server {
-            match ServerHandle::spawn() {
-                Ok(s) => {
-                    tracing::info!("Local server started");
-                    Some(s)
-                }
-                Err(e) => {
-                    tracing::error!("Start server: {e}");
-                    return;
-                }
-            }
-        } else {
-            None
-        };
-
-        let username = format!("FerritePlayer_{}", std::process::id());
-        let (network, _join) = Network::connect(self.runtime.handle(), address, &username);
-        self.network = Some((network, server));
-        self.connecting = true;
+    }
+    {
+        let mut ui = world.resource_mut::<UiRes>();
+        ui.last_error = None;
     }
 
-    fn disconnect(&mut self) {
-        self.network = None;
-        self.connecting = false;
-        self.connected = false;
-        self.player_pos = None;
-    }
-
-    fn poll_network(&mut self) {
-        let event = {
-            let (net, _) = match &mut self.network {
-                Some(n) => n,
-                None => return,
-            };
-            match net.try_recv() {
-                Ok(Some(e)) => Some(e),
-                Ok(None) => None,
-                Err(mpsc::error::TryRecvError::Disconnected) => {
-                    tracing::info!("Network task ended");
-                    return self.disconnect();
-                }
-                Err(mpsc::error::TryRecvError::Empty) => None,
+    let server = if start_server {
+        match ServerHandle::spawn() {
+            Ok(s) => {
+                tracing::info!("Local server started");
+                Some(s)
             }
-        };
-        match event {
-            Some(NetworkEvent::Connected) => {
-                tracing::info!("Connected!");
-                self.connecting = false;
-                self.connected = true;
+            Err(e) => {
+                tracing::error!("Start server: {e}");
+                return;
             }
-            Some(NetworkEvent::Disconnected(r)) => {
-                tracing::info!("Disconnected: {r}");
-                self.last_error = Some(r);
-                self.disconnect();
-            }
-            Some(NetworkEvent::PlayerPosition(x, y, z)) => {
-                self.player_pos = Some((x, y, z));
-            }
-            None => {}
         }
-    }
+    } else {
+        None
+    };
 
-    fn render_ui(&mut self, ctx: &egui::Context) {
-        if self.connected {
-            self.render_ingame(ctx);
-        } else if self.connecting {
-            self.render_connecting(ctx);
-        } else {
-            self.render_menu(ctx);
-        }
-    }
+    let username = format!("FerritePlayer_{}", std::process::id());
+    let (network, _join) = Network::connect(runtime_handle, address, &username);
+    let mut net = world.resource_mut::<NetworkRes>();
+    net.inner = Some((network, server));
+    net.connecting = true;
+}
 
-    fn render_menu(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(120.0);
-                ui.heading("Ferrite");
+// ── UI rendering (pure functions, no AppState binding) ──
+
+fn render_ui(
+    ctx: &egui::Context,
+    connected: bool,
+    connecting: bool,
+    player_pos: Option<(f64, f64, f64)>,
+    last_error: &Option<String>,
+    connects: &mut Vec<(String, bool)>,
+) {
+    if connected {
+        render_ingame(ctx, player_pos);
+    } else if connecting {
+        render_connecting(ctx);
+    } else {
+        render_menu(ctx, last_error, connects);
+    }
+}
+
+fn render_menu(ctx: &egui::Context, last_error: &Option<String>, connects: &mut Vec<(String, bool)>) {
+    egui::CentralPanel::default().show(ctx, |ui| {
+        ui.vertical_centered(|ui| {
+            ui.add_space(120.0);
+            ui.heading("Ferrite");
+            ui.add_space(20.0);
+
+            if ui.button("Single Player").clicked() {
+                connects.push(("127.0.0.1:25565".to_string(), true));
+            }
+            if ui.button("Multi Player").clicked() {}
+            if ui.button("Quit").clicked() {
+                std::process::exit(0);
+            }
+
+            if let Some(err) = last_error {
                 ui.add_space(20.0);
+                ui.colored_label(egui::Color32::RED, format!("Error: {}", err));
+            }
+        });
+    });
+}
 
-                if ui.button("Single Player").clicked() {
-                    self.actions.push(Action::Connect("127.0.0.1:25565".into(), true));
-                }
-                if ui.button("Multi Player").clicked() {}
-                if ui.button("Quit").clicked() {
-                    self.actions.push(Action::Quit);
-                }
+fn render_connecting(ctx: &egui::Context) {
+    egui::CentralPanel::default().show(ctx, |ui| {
+        ui.vertical_centered(|ui| {
+            ui.add_space(160.0);
+            ui.heading("Connecting...");
+            ui.add_space(10.0);
+            ui.add(egui::Spinner::default());
+        });
+    });
+}
 
-                if let Some(err) = &self.last_error {
-                    ui.add_space(20.0);
-                    ui.colored_label(egui::Color32::RED, format!("Error: {}", err));
-                }
+fn render_ingame(ctx: &egui::Context, player_pos: Option<(f64, f64, f64)>) {
+    egui::TopBottomPanel::top("hud")
+        .frame(egui::Frame::none().fill(egui::Color32::from_black_alpha(150)).inner_margin(8.0))
+        .show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            ui.visuals_mut().override_text_color = Some(egui::Color32::WHITE);
+            ui.label(egui::RichText::new("Ferrite").strong());
+            if let Some((x, y, z)) = player_pos {
+                ui.separator();
+                ui.label(format!("XYZ: {:.1} / {:.1} / {:.1}", x, y, z));
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.colored_label(egui::Color32::GREEN, "● Connected");
             });
         });
-    }
+    });
 
-    fn render_connecting(&self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(160.0);
-                ui.heading("Connecting...");
-                ui.add_space(10.0);
-                ui.add(egui::Spinner::default());
-            });
-        });
-    }
+    egui::CentralPanel::default().frame(egui::Frame::none()).show(ctx, |ui| {
+        let rect = ui.max_rect();
+        let center = rect.center();
+        let color = egui::Color32::from_white_alpha(200);
+        let stroke = egui::Stroke::new(2.0, color);
+        let len = 10.0;
 
-    fn render_ingame(&self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("hud")
-            .frame(egui::Frame::none().fill(egui::Color32::from_black_alpha(150)).inner_margin(8.0))
-            .show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.visuals_mut().override_text_color = Some(egui::Color32::WHITE);
-                ui.label(egui::RichText::new("Ferrite").strong());
-                if let Some((x, y, z)) = self.player_pos {
-                    ui.separator();
-                    ui.label(format!("XYZ: {:.1} / {:.1} / {:.1}", x, y, z));
-                }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.colored_label(egui::Color32::GREEN, "● Connected");
-                });
-            });
-        });
+        ui.painter().line_segment([center - egui::vec2(len, 0.0), center + egui::vec2(len, 0.0)], stroke);
+        ui.painter().line_segment([center - egui::vec2(0.0, len), center + egui::vec2(0.0, len)], stroke);
 
-        // Draw crosshair
-        egui::CentralPanel::default().frame(egui::Frame::none()).show(ctx, |ui| {
-            let rect = ui.max_rect();
-            let center = rect.center();
-            let color = egui::Color32::from_white_alpha(200);
-            let stroke = egui::Stroke::new(2.0, color);
-            let len = 10.0;
-            
-            ui.painter().line_segment([center - egui::vec2(len, 0.0), center + egui::vec2(len, 0.0)], stroke);
-            ui.painter().line_segment([center - egui::vec2(0.0, len), center + egui::vec2(0.0, len)], stroke);
-            
-            // Draw placeholder health bar at the bottom
-            let health_center = egui::pos2(center.x, rect.max.y - 40.0);
-            ui.painter().text(
-                health_center,
-                egui::Align2::CENTER_CENTER,
-                "♥♥♥♥♥♥♥♥♥♥",
-                egui::FontId::proportional(24.0),
-                egui::Color32::RED,
-            );
-        });
-    }
+        let health_center = egui::pos2(center.x, rect.max.y - 40.0);
+        ui.painter().text(
+            health_center,
+            egui::Align2::CENTER_CENTER,
+            "♥♥♥♥♥♥♥♥♥♥",
+            egui::FontId::proportional(24.0),
+            egui::Color32::RED,
+        );
+    });
 }

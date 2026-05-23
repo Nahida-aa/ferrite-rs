@@ -1,11 +1,10 @@
-mod render;
+mod game;
 mod network;
-mod state;
 mod server;
 
 use std::fs::OpenOptions;
-use winit::event_loop::EventLoop;
 
+use bevy::prelude::*;
 use tracing_subscriber::EnvFilter;
 
 fn main() -> anyhow::Result<()> {
@@ -27,13 +26,18 @@ fn main() -> anyhow::Result<()> {
 
     let auto_connect = std::env::args().any(|a| a == "--auto-connect");
 
-    let event_loop = EventLoop::new()?;
-    let mut app = state::AppState::new()?;
+    let mut app = App::new();
+    app.insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.05)));
+    app.add_plugins(DefaultPlugins);
+    app.add_plugins(game::GamePlugin);
+
     if auto_connect {
-        app.queue_connect("localhost:25565".to_owned(), true);
+        app.world_mut()
+            .resource_mut::<game::PendingConnect>()
+            .0
+            .push(("localhost:25565".to_string(), true));
     }
-    event_loop.run(move |event, target| {
-        app.handle_event(event, target);
-    })?;
+
+    app.run();
     Ok(())
 }

@@ -5,13 +5,8 @@ edition = "2021"
 
 [dependencies]
 ferrite-core = { path = "../lib/ferrite-core" }
-bevy_ecs = { version = "0.14", default-features = false, features = ["multi_threaded"] }
+bevy = { version = "0.14", default-features = false, features = ["bevy_winit", "bevy_ui", "bevy_render", "bevy_core_pipeline", "bevy_pbr", "bevy_asset", "x11"] }
 clap = { version = "4", features = ["derive"] }
-wgpu = "0.20"
-winit = "0.29"
-egui = "0.28"
-egui-wgpu = "0.28"
-egui-winit = "0.28"
 tokio = { version = "1", features = ["full"] }
 bytes = "1"
 tracing = "0.1"
@@ -28,6 +23,3 @@ cfb8 = "0.9"
 rand = "0.8"
 kira = "0.9"
 env_logger = "0.11"
-pollster = "0.4"
-bytemuck = { version = "1.25.0", features = ["derive"] }
-nalgebra = "0.34.2"

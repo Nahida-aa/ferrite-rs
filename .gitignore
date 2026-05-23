@@ -7,7 +7,9 @@
 *~
 .env
 
-world/
-logs/
+/world
+/world/*
+/logs/*
 
+/logs
 *.log
