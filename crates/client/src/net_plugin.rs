@@ -158,7 +158,7 @@ fn handle_pending_connect(
         ui.last_error = None;
         net.connected = true;
         net.connecting = false;
-        player.position = Some((8.0, 73.0, 8.0));
+        player.position = Some((8.0, 72.0, 8.0));
         info.entity_id = Some(0);
         info.game_mode = Some(0);
         cursor.want_grabbed = true;
@@ -167,7 +167,7 @@ fn handle_pending_connect(
 
         // Send events to trigger normal setup path
         network_events.send(NetworkEvent::Connected);
-        network_events.send(NetworkEvent::PlayerPosition(8.0, 73.0, 8.0));
+        network_events.send(NetworkEvent::PlayerPosition(8.0, 72.0, 8.0));
         network_events.send(NetworkEvent::LoginPlay { entity_id: 0, game_mode: 0 });
 
         // Generate demo chunks

@@ -52,8 +52,8 @@ fn look_system(
         return;
     }
     for ev in mouse_events.read() {
-        look.yaw -= ev.delta.x * 0.005;
-        look.pitch = (look.pitch - ev.delta.y * 0.005).clamp(-1.5, 1.5);
+        look.yaw += ev.delta.x * 0.005;
+        look.pitch = (look.pitch + ev.delta.y * 0.005).clamp(-1.5, 1.5);
     }
 }
 
@@ -98,7 +98,7 @@ fn movement_system(
     };
 
     let forward = Vec3::new(-look.yaw.sin(), 0.0, look.yaw.cos());
-    let right = Vec3::new(look.yaw.cos(), 0.0, look.yaw.sin());
+    let right = Vec3::new(-look.yaw.cos(), 0.0, -look.yaw.sin());
 
     let mut delta = Vec3::ZERO;
     if keyboard.pressed(KeyCode::KeyW) {
