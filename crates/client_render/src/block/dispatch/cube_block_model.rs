@@ -1,7 +1,7 @@
-use ferrite_core::direction::Direction;
-use super::block_state_model::{BlockStateModel};
+use super::block_state_model::BlockStateModel;
 use super::block_state_model_part::BlockStateModelPart;
-use crate::geometry::baked_quad::BakedQuad;
+use client_resources::model::geometry::baked_quad::BakedQuad;
+use ferrite_core::direction::Direction;
 
 #[derive(Clone, Copy)]
 pub struct BlockFace {
@@ -25,7 +25,9 @@ pub struct CubeBlockModel {
 
 impl CubeBlockModel {
     pub fn face_texture_name(&self, face_idx: usize) -> &str {
-        self.texture_names.get(self.faces[face_idx].texture).map_or("", |s| s.as_str())
+        self.texture_names
+            .get(self.faces[face_idx].texture)
+            .map_or("", |s| s.as_str())
     }
 }
 

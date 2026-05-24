@@ -8,17 +8,8 @@ ferrite-core = { path = "../ferrite-core" }
 ferrite-net = { path = "../ferrite-net" }
 ferrite-gui = { path = "../ferrite-gui" }
 ferrite-world = { path = "../world" }
-ferrite-client-render = { path = "../client_render" }
-bevy = { version = "0.14", default-features = false, features = [
-    "bevy_winit",
-    "bevy_ui",
-    "bevy_render",
-    "bevy_core_pipeline",
-    "bevy_pbr",
-    "bevy_asset",
-    "default_font",
-    "x11",
-] }
+client_render.workspace = true
+bevy.workspace = true
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

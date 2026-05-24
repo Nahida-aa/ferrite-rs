@@ -4,6 +4,7 @@ members = [
     "crates/ferrite-core",
     "crates/ferrite-net",
     "crates/world",
+    "crates/client_resources",
     "crates/client_render",
     "crates/client_player",
     "crates/client_multiplayer",
@@ -20,4 +21,20 @@ publish = false
 edition = "2024"
 
 [workspace.dependencies]
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip"] }
+ferrite-core = { path = "crates/ferrite-core" }
+client_render = { path = "crates/client_render" }
+client_resources = { path = "crates/client_resources" }
+
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "json",
+    "gzip",
+] }
+bevy = { version = "0.14", default-features = false, features = [
+    "bevy_winit",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_pbr",
+    "bevy_asset",
+    "x11",
+] }
