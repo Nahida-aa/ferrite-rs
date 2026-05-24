@@ -56,7 +56,7 @@ enum Sub {
         output_dir: PathBuf,
     },
 
-    /// Extract assets/minecraft from jar to a local directory
+    /// Extract assets (textures/sounds) and data (blockstates/tags) from jar
     Export {
         #[arg(long, default_value = "1.21.8")]
         version: String,
@@ -64,9 +64,17 @@ enum Sub {
         #[arg(long, default_value = ".minecraft")]
         minecraft_dir: PathBuf,
 
-        /// Output directory (files written to <output>/minecraft/...)
+        /// Asset output directory (<output>/minecraft/...)
         #[arg(long, default_value = concat!(env!("CARGO_MANIFEST_DIR"), "/../client/assets"))]
-        output: PathBuf,
+        assets_dir: PathBuf,
+
+        /// Data output directory (<output>/minecraft/...)
+        #[arg(long, default_value = concat!(env!("CARGO_MANIFEST_DIR"), "/../client/data"))]
+        data_dir: PathBuf,
+
+        /// What to export: "assets", "data", or "all"
+        #[arg(long, default_value = "all")]
+        types: String,
     },
 }
 
@@ -280,7 +288,7 @@ async fn decompile(version: &str, jar_path: &Path, output_dir: &Path) -> anyhow:
 // Export
 // ---------------------------------------------------------------------------
 
-fn export(version: &str, minecraft_dir: &Path, output: &Path) -> anyhow::Result<()> {
+fn export(version: &str, minecraft_dir: &Path, assets_dir: &Path, data_dir: &Path, types: &str) -> anyhow::Result<()> {
     let jar = minecraft_dir
         .join("versions")
         .join(version)
@@ -292,40 +300,52 @@ fn export(version: &str, minecraft_dir: &Path, output: &Path) -> anyhow::Result<
     let file = std::fs::File::open(&jar)?;
     let mut archive = zip::ZipArchive::new(file)?;
 
-    let prefix = "assets/";
-    let mut count = 0;
+    let do_assets = types == "all" || types == "assets";
+    let do_data = types == "all" || types == "data";
 
-    for i in 0..archive.len() {
-        let mut entry = match archive.by_index(i) {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
+    let prefixes: Vec<(&str, &Path)> = match (do_assets, do_data) {
+        (true, true) => vec![("assets/", assets_dir), ("data/", data_dir)],
+        (true, false) => vec![("assets/", assets_dir)],
+        (false, true) => vec![("data/", data_dir)],
+        (false, false) => return Ok(()),
+    };
 
-        let Some(zip_path) = entry.enclosed_name().map(|p| p.to_string_lossy().to_string()) else {
-            continue;
-        };
+    for &(prefix, output) in &prefixes {
+        let mut count = 0;
 
-        if !zip_path.starts_with(prefix) {
-            continue;
+        for i in 0..archive.len() {
+            let mut entry = match archive.by_index(i) {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+
+            let Some(zip_path) = entry.enclosed_name().map(|p| p.to_string_lossy().to_string()) else {
+                continue;
+            };
+
+            if !zip_path.starts_with(prefix) {
+                continue;
+            }
+
+            let relative = &zip_path[prefix.len()..];
+            let dest = output.join(&relative);
+
+            if entry.is_dir() {
+                std::fs::create_dir_all(&dest).ok();
+                continue;
+            }
+
+            std::fs::create_dir_all(dest.parent().unwrap())?;
+
+            let mut data = Vec::with_capacity(entry.size() as usize);
+            std::io::Read::read_to_end(&mut entry, &mut data)?;
+            std::fs::write(&dest, &data)?;
+            count += 1;
         }
 
-        let relative = &zip_path[prefix.len()..]; // "minecraft/textures/block/stone.png"
-        let dest = output.join(&relative);
-
-        if entry.is_dir() {
-            std::fs::create_dir_all(&dest).ok();
-            continue;
-        }
-
-        std::fs::create_dir_all(dest.parent().unwrap())?;
-
-        let mut data = Vec::with_capacity(entry.size() as usize);
-        std::io::Read::read_to_end(&mut entry, &mut data)?;
-        std::fs::write(&dest, &data)?;
-        count += 1;
+        tracing::info!("Exported {count} files to {}", output.display());
     }
 
-    tracing::info!("Exported {count} files to {}", output.display());
     Ok(())
 }
 
@@ -380,8 +400,8 @@ async fn main() -> anyhow::Result<()> {
 
             tracing::info!("Done. Output: {}", output_dir.display());
         }
-        Sub::Export { version, minecraft_dir, output } => {
-            if let Err(e) = export(&version, &minecraft_dir, &output) {
+        Sub::Export { version, minecraft_dir, assets_dir, data_dir, types } => {
+            if let Err(e) = export(&version, &minecraft_dir, &assets_dir, &data_dir, &types) {
                 tracing::error!("Export failed: {e}");
             }
         }

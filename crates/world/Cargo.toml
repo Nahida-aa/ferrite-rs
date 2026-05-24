@@ -1,0 +1,8 @@
+[package]
+name = "ferrite-world"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ferrite-core = { path = "../ferrite-core" }
+glam = "0.29"

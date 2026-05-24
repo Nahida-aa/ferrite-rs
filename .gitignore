@@ -27,4 +27,6 @@
 /logs/
 /logs/*
 
+# Minecraft copyrighted assets (not distributable)
 **/assets/minecraft/
+**/data/minecraft/
