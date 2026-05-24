@@ -73,9 +73,9 @@ impl Plugin for UIPlugin {
 }
 
 fn load_ui_font(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Use JetBrains Mono Nerd Font as the default UI font.
-    // The file is stored under `crates/client/assets/fonts/JetBrainsMonoNerdFont.ttf`.
-    commands.insert_resource(UiFont(asset_server.load("fonts/JetBrainsMonoNerdFont.ttf")));
+    // Use aaxlMonoSC (supports CJK) as the default UI font.
+    // The file is stored under `crates/client/assets/fonts/aaxlMonoSC-Regular.ttf`.
+    commands.insert_resource(UiFont(asset_server.load("fonts/aaxlMonoSC-Regular.ttf")));
 }
 
 // ── Camera & Ground (Startup) ──
