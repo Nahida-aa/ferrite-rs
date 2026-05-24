@@ -1866,3 +1866,11 @@
 2026-05-24T10:51:30.263949Z  INFO ferrumc::game_loop: Server is ready in 2.48 ms
 2026-05-24T10:51:30.517013Z  INFO ferrumc_dashboard: Dashboard listening on http://0.0.0.0:9000
 2026-05-24T10:55:04.114031Z  INFO system{name="ferrumc::systems::connection_killer::connection_killer"}: ferrumc::systems::connection_killer: Player f_263009 (9f11f78c-7304-4847-bb2d-2a66f6646505) disconnected: No reason.
+2026-05-24T11:40:28.214017Z  INFO system{name="ferrumc::systems::connection_killer::connection_killer"}: ferrumc::systems::connection_killer: Player f_272458 (9f11f78c-7304-4847-bb2d-2a6707d0dc6d) disconnected: No reason.
+2026-05-24T11:40:59.864035Z  INFO system{name="ferrumc::systems::connection_killer::connection_killer"}: ferrumc::systems::connection_killer: Player f_293364 (9f11f78c-7304-4847-bb2d-2a672b0e5420) disconnected: No reason.
+2026-05-24T11:49:55.417140Z  WARN ferrumc::game_loop: Schedule 'tick' overran: took 53.16562ms, budget 50ms
+2026-05-24T11:49:56.222466Z  WARN ferrumc::game_loop: Schedule 'tick' overran: took 58.518508ms, budget 50ms
+2026-05-24T11:52:04.365264Z  INFO system{name="ferrumc::packet_handlers::play_packets::player_loaded::handle"}: ferrumc::packet_handlers::play_packets::player_loaded: Player 1v0 loaded at position: (0, 0, 0)
+2026-05-24T11:52:04.491095Z  WARN ferrumc::game_loop: Schedule 'tick' overran: took 77.159619ms, budget 50ms
+2026-05-24T11:52:19.379077Z  WARN system{name="ferrumc::systems::send_entity_updates::handle"}: ferrumc::systems::send_entity_updates: Tried to send entity update for non-existent entity: 1v0
+2026-05-24T11:54:45.414126Z  INFO system{name="ferrumc::systems::listeners::gamemode_change::handle"}: ferrumc::systems::listeners::gamemode_change: Set gamemode for aa to Survival

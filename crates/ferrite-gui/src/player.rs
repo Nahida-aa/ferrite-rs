@@ -28,6 +28,19 @@ fn spawn_camera(mut commands: Commands) {
         tonemapping: Tonemapping::None,
         ..default()
     });
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.3,
+    });
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: 10000.0,
+            shadows_enabled: false,
+            ..default()
+        },
+        transform: Transform::from_xyz(50.0, 100.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
 }
 
 fn look_system(

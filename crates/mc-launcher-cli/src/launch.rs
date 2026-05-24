@@ -44,14 +44,14 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
         for arg in &args.jvm {
             match arg {
                 Argument::Simple(s) => {
-                    jvm_args.push(substitute(s, &config));
+                    jvm_args.push(substitute(s, &config, &classpath));
                 }
                 Argument::Rule(rule) => {
                     if manifest::rule_matches(&rule.rules) {
                         let values = match &rule.value {
-                            manifest::ArgumentValue::String(s) => vec![substitute(s, &config)],
+                            manifest::ArgumentValue::String(s) => vec![substitute(s, &config, &classpath)],
                             manifest::ArgumentValue::List(l) => {
-                                l.iter().map(|s| substitute(s, &config)).collect()
+                                l.iter().map(|s| substitute(s, &config, &classpath)).collect()
                             }
                         };
                         jvm_args.extend(values);
@@ -61,8 +61,10 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
         }
     }
 
-    jvm_args.push("-cp".to_string());
-    jvm_args.push(classpath);
+    if config.metadata.arguments.is_none() {
+        jvm_args.push("-cp".to_string());
+        jvm_args.push(classpath.clone());
+    }
 
     jvm_args.push(config.metadata.main_class.clone());
 
@@ -71,7 +73,7 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
         for arg in &args.game {
             match arg {
                 Argument::Simple(s) => {
-                    let sub = substitute(s, &config);
+                    let sub = substitute(s, &config, &classpath);
                     if sub == "--username" {
                         has_username = true;
                     }
@@ -80,9 +82,9 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
                 Argument::Rule(rule) => {
                     if manifest::rule_matches(&rule.rules) {
                         let values = match &rule.value {
-                            manifest::ArgumentValue::String(s) => vec![substitute(s, &config)],
+                            manifest::ArgumentValue::String(s) => vec![substitute(s, &config, &classpath)],
                             manifest::ArgumentValue::List(l) => {
-                                l.iter().map(|s| substitute(s, &config)).collect()
+                                l.iter().map(|s| substitute(s, &config, &classpath)).collect()
                             }
                         };
                         for v in &values {
@@ -96,7 +98,7 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
             }
         }
     } else if let Some(ref legacy_args) = config.metadata.minecraft_arguments {
-        let sub = substitute(legacy_args, &config);
+        let sub = substitute(legacy_args, &config, &classpath);
         for token in shlex::split(&sub).unwrap_or_default() {
             if token == "--username" {
                 has_username = true;
@@ -145,10 +147,11 @@ fn build_classpath(config: &LaunchConfig) -> String {
     entries.join(separator)
 }
 
-fn substitute(template: &str, config: &LaunchConfig) -> String {
+fn substitute(template: &str, config: &LaunchConfig, classpath: &str) -> String {
     let mut result = template.to_string();
 
     let subs: Vec<(&str, String)> = vec![
+        ("${classpath}", classpath.to_string()),
         ("${natives_directory}", config.natives_dir.to_string_lossy().to_string()),
         ("${library_directory}", config.game_dir.join("libraries").to_string_lossy().to_string()),
         ("${classpath_separator}", if cfg!(windows) { ";" } else { ":" }.to_string()),
@@ -161,6 +164,9 @@ fn substitute(template: &str, config: &LaunchConfig) -> String {
         ("${auth_player_name}", config.username.clone()),
         ("${auth_access_token}", config.access_token.clone()),
         ("${auth_uuid}", config.uuid.clone()),
+        ("${game_directory}", config.game_dir.to_string_lossy().to_string()),
+        ("${clientid}", config.uuid.clone()),
+        ("${auth_xuid}", String::new()),
         ("${user_properties}", "{}".to_string()),
         ("${user_type}", config.user_type.clone()),
         ("${version_type}", config.metadata.kind.clone()),

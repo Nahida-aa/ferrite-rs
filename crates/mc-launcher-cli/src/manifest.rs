@@ -94,6 +94,8 @@ pub struct Artifact {
     pub sha1: String,
     #[serde(default)]
     pub size: i64,
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 impl Default for Artifact {
@@ -102,6 +104,7 @@ impl Default for Artifact {
             url: String::new(),
             sha1: String::new(),
             size: 0,
+            path: None,
         }
     }
 }
@@ -221,24 +224,32 @@ fn rule_matches_single(rule: &Rule) -> bool {
             name_ok && arch_ok
         }
     };
-    let features_ok = match &rule.features {
-        None => true,
-        Some(features) => features.iter().all(|(_, v)| *v),
-    };
+    // No features enabled by this launcher — feature-gated rules never match
+    let features_ok = rule.features.is_none();
     os_ok && features_ok
 }
 
-/// Convert Maven coordinate `group:artifact:version` to relative path.
+/// Convert Maven coordinate to relative path.
 /// e.g. `"org.lwjgl:lwjgl:3.3.4"` → `"org/lwjgl/lwjgl/3.3.4/lwjgl-3.3.4.jar"`
+///       `"org.lwjgl:lwjgl:3.3.4:natives-linux"` → `"org/lwjgl/lwjgl/3.3.4/lwjgl-3.3.4-natives-linux.jar"`
 pub fn maven_path(name: &str) -> PathBuf {
-    let parts: Vec<&str> = name.splitn(3, ':').collect();
-    if parts.len() != 3 {
-        return PathBuf::from(name.replace(':', ".") + ".jar");
+    let parts: Vec<&str> = name.splitn(4, ':').collect();
+    match parts.len() {
+        4 => {
+            let group = parts[0].replace('.', "/");
+            let artifact = parts[1];
+            let version = parts[2];
+            let classifier = parts[3];
+            PathBuf::from_iter([&group, artifact, version, &format!("{}-{}-{}.jar", artifact, version, classifier)])
+        }
+        3 => {
+            let group = parts[0].replace('.', "/");
+            let artifact = parts[1];
+            let version = parts[2];
+            PathBuf::from_iter([&group, artifact, version, &format!("{}-{}.jar", artifact, version)])
+        }
+        _ => PathBuf::from(name.replace(':', ".") + ".jar"),
     }
-    let group = parts[0].replace('.', "/");
-    let artifact = parts[1];
-    let version = parts[2];
-    PathBuf::from_iter([&group, artifact, version, &format!("{}-{}.jar", artifact, version)])
 }
 
 /// Same as `maven_path` but for classifier jars (e.g. natives).

@@ -18,6 +18,13 @@ pub async fn resolve_libraries(
     let natives_key = manifest::get_natives_key();
     let mut resolved = Vec::new();
 
+    let natives_suffix = format!(":natives-{}", std::env::consts::OS);
+
+    // Check once if natives dir already has .so files
+    let has_natives = std::fs::read_dir(natives_dir).ok()
+        .map(|mut e| e.any(|e| e.as_ref().is_ok_and(|e| e.path().extension().is_some_and(|x| x == "so"))))
+        .unwrap_or(false);
+
     for lib in &metadata.libraries {
         if let Some(rules) = &lib.rules {
             if !manifest::rule_matches(rules) {
@@ -25,9 +32,18 @@ pub async fn resolve_libraries(
             }
         }
 
-        // Main artifact – save to libraries/<maven_path>
+        let is_native_classifier = lib.name.ends_with(&natives_suffix);
+
+        // Resolve artifact path: use metadata `path` field if available, else maven_path
+        let artifact_path = |artifact: &manifest::Artifact, name: &str| -> PathBuf {
+            artifact.path.as_ref()
+                .map(|p| PathBuf::from(p))
+                .unwrap_or_else(|| manifest::maven_path(name))
+        };
+
+        // Main artifact – save to libraries/
         if let Some(artifact) = &lib.downloads.artifact {
-            let rel_path = manifest::maven_path(&lib.name);
+            let rel_path = artifact_path(artifact, &lib.name);
             let jar_path = libs_base.join(&rel_path);
             cache
                 .download_to(&artifact.url, &jar_path, Some(&artifact.sha1))
@@ -38,28 +54,31 @@ pub async fn resolve_libraries(
             });
         }
 
-        // Native classifiers – extract to natives_dir/<version>/
-        if let Some(natives_key) = lib.natives.as_ref().and_then(|n| n.get(natives_key)) {
+        // Separate native classifier entries (e.g. org.lwjgl:lwjgl:3.3.3:natives-linux)
+        if is_native_classifier {
+            if let Some(artifact) = &lib.downloads.artifact {
+                let jar_path = libs_base.join(&artifact_path(artifact, &lib.name));
+                if !has_natives {
+                    cache
+                        .download_to(&artifact.url, &jar_path, Some(&artifact.sha1))
+                        .await?;
+                    extract_natives(&jar_path, natives_dir, lib.extract.as_ref()).await?;
+                }
+            }
+        // Embedded natives (lib.natives field + classifiers)
+        } else if let Some(natives_key) = lib.natives.as_ref().and_then(|n| n.get(natives_key)) {
             if let Some(classifiers) = &lib.downloads.classifiers {
                 if let Some(native_artifact) = classifiers.get(natives_key) {
-                    let rel_path = manifest::maven_classifier_path(&lib.name, natives_key);
+                    let rel_path = native_artifact.path.as_ref()
+                        .map(|p| PathBuf::from(p))
+                        .unwrap_or_else(|| manifest::maven_classifier_path(&lib.name, natives_key));
                     let jar_path = libs_base.join(&rel_path);
-
-                    // Skip natives extraction if natives dir already has .so files
-                    let has_natives = std::fs::read_dir(natives_dir)
-                        .map(|mut e| e.any(|e| e.is_ok()))
-                        .unwrap_or(false);
                     if !has_natives {
                         cache
                             .download_to(&native_artifact.url, &jar_path, Some(&native_artifact.sha1))
                             .await?;
                         extract_natives(&jar_path, natives_dir, lib.extract.as_ref()).await?;
                     }
-
-                    resolved.push(ResolvedLibrary {
-                        path: jar_path,
-                        is_native: true,
-                    });
                 }
             }
         }
@@ -89,9 +108,9 @@ pub async fn extract_natives(
             continue;
         }
 
-        if !entry_path.contains('/')
-            || entry_path.ends_with(".class")
+        if entry_path.ends_with(".class")
             || entry_path.ends_with(".jar")
+            || entry_path.starts_with("META-INF/")
         {
             continue;
         }
