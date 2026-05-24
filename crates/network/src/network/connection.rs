@@ -6,20 +6,20 @@ use std::io::{Read, Write};
 
 type AesCfb8Enc = cfb8::Encryptor<Aes128>;
 type AesCfb8Dec = cfb8::Decryptor<Aes128>;
-use ferrite_core::protocol::codec::{parse_packets, read_var_int, var_int_len, write_var_int};
-use ferrite_core::protocol::packets::config::{
+use core::protocol::codec::{parse_packets, read_var_int, var_int_len, write_var_int};
+use core::protocol::packets::config::{
     ClientBoundKnownPacks, ClientBoundPluginMessage, ClientInformation, FinishConfiguration,
     FinishConfigurationAcknowledged, RegistryData, ServerBoundKnownPacks,
 };
-use ferrite_core::protocol::packets::login::LoginSuccess;
-use ferrite_core::protocol::packets::play::{KeepAliveC2S, KeepAliveS2C};
+use core::protocol::packets::login::LoginSuccess;
+use core::protocol::packets::play::{KeepAliveC2S, KeepAliveS2C};
 use flate2::read::ZlibDecoder;
-use rsa::pkcs8::DecodePublicKey;
 use rsa::Pkcs1v15Encrypt;
 use rsa::RsaPublicKey;
+use rsa::pkcs8::DecodePublicKey;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::sync::mpsc;
 
 use super::{NetworkCommand, NetworkEvent};
@@ -41,15 +41,15 @@ pub async fn run(
     let mut enc_cipher: Option<AesCfb8Enc> = None;
     let mut dec_cipher: Option<AesCfb8Dec> = None;
 
-    let hs = ferrite_core::protocol::packets::handshake::Handshake {
-        protocol_version: ferrite_core::protocol::packets::FERRUMC_PROTOCOL,
+    let hs = core::protocol::packets::handshake::Handshake {
+        protocol_version: core::protocol::packets::FERRUMC_PROTOCOL,
         server_address: "127.0.0.1".to_string(),
         server_port: 25565,
         next_state: 2,
     };
     write_packet(
         &mut writer,
-        ferrite_core::protocol::packets::handshake::Handshake::ID,
+        core::protocol::packets::handshake::Handshake::ID,
         &hs.encode(),
         &None,
         &mut None,
@@ -62,13 +62,13 @@ pub async fn run(
             acc.wrapping_mul(131).wrapping_add(b as u128)
         })
     });
-    let ls = ferrite_core::protocol::packets::login::LoginStart {
+    let ls = core::protocol::packets::login::LoginStart {
         username: username.to_string(),
         uuid: offline_uuid,
     };
     write_packet(
         &mut writer,
-        ferrite_core::protocol::packets::login::LoginStart::ID,
+        core::protocol::packets::login::LoginStart::ID,
         &ls.encode(),
         &None,
         &mut None,
@@ -142,7 +142,7 @@ pub async fn run(
                 tracing::info!("Encryption enabled");
             }
             0x00 => {
-                let reason = ferrite_core::protocol::codec::read_string(&mut data, 65535)
+                let reason = core::protocol::codec::read_string(&mut data, 65535)
                     .unwrap_or_else(|| format!("<decode error: {} bytes>", data.len()));
                 anyhow::bail!("Login rejected: {}", reason);
             }
@@ -158,8 +158,8 @@ pub async fn run(
     }
 
     {
-        let payload = ferrite_core::protocol::packets::login::LoginAcknowledged.encode();
-        let id = ferrite_core::protocol::packets::login::LoginAcknowledged::ID;
+        let payload = core::protocol::packets::login::LoginAcknowledged.encode();
+        let id = core::protocol::packets::login::LoginAcknowledged::ID;
         write_packet(&mut writer, id, &payload, &compression, &mut enc_cipher).await?;
     }
 
@@ -403,13 +403,12 @@ async fn run_play_loop(
                             if data.len() >= data_len {
                                 let mut payload = data.split_to(data_len);
                                 if let Some(chunk) =
-                                    ferrite_core::chunk::Chunk::decode_from_play_payload(
+                                    core::chunk::Chunk::decode_from_play_payload(
                                         &mut payload,
                                     )
                                 {
-                                    let _ = events
-                                        .send(NetworkEvent::ChunkData { x, z, chunk })
-                                        .await;
+                                    let _ =
+                                        events.send(NetworkEvent::ChunkData { x, z, chunk }).await;
                                     tracing::info!("ChunkData decoded for chunk ({},{})", x, z);
                                 } else {
                                     tracing::warn!(
@@ -475,13 +474,13 @@ async fn read_packet(
     dec_cipher: &mut Option<AesCfb8Dec>,
 ) -> Result<()> {
     let mut tmp = BytesMut::new();
-    if let Some(ref mut cipher) = dec_cipher {
+    if let Some(cipher) = dec_cipher {
         read_encrypted_frame(reader, &mut tmp, cipher).await?;
     } else {
         read_raw_frame(reader, &mut tmp).await?;
     }
 
-    if let Some(ref comp) = compression {
+    if let Some(comp) = compression {
         decompress_into(tmp, buf, comp)?;
     } else {
         buf.extend_from_slice(&tmp);
@@ -568,7 +567,7 @@ async fn read_raw_frame(reader: &mut OwnedReadHalf, buf: &mut BytesMut) -> Resul
 }
 
 fn parse_encryption_request(data: &mut BytesMut) -> Result<(String, Vec<u8>, Vec<u8>)> {
-    let server_id = ferrite_core::protocol::codec::read_string(data, 32767)
+    let server_id = core::protocol::codec::read_string(data, 32767)
         .ok_or(anyhow::anyhow!("bad server id"))?;
     let pubkey_len = read_var_int(data).ok_or(anyhow::anyhow!("bad pubkey len"))? as usize;
     let pubkey = data.split_to(pubkey_len).to_vec();
@@ -586,21 +585,21 @@ async fn write_packet(
 ) -> Result<()> {
     let raw_payload = {
         let mut p = Vec::with_capacity(var_int_len(id) + data.len());
-        ferrite_core::protocol::codec::write_var_int(&mut p, id);
+        core::protocol::codec::write_var_int(&mut p, id);
         p.extend_from_slice(data);
         p
     };
 
-    let mut frame = if let Some(ref comp) = compression {
+    let mut frame = if let Some(comp) = compression {
         encode_compressed_frame(&raw_payload, comp)
     } else {
         let mut f = BytesMut::new();
-        ferrite_core::protocol::codec::write_var_int(&mut f, raw_payload.len() as i32);
+        core::protocol::codec::write_var_int(&mut f, raw_payload.len() as i32);
         f.extend_from_slice(&raw_payload);
         f
     };
 
-    if let Some(ref mut cipher) = enc_cipher {
+    if let Some(cipher) = enc_cipher {
         cipher.encrypt(&mut frame);
     }
 
@@ -617,16 +616,16 @@ async fn write_packet(
 
 fn encode_compressed_frame(raw_payload: &[u8], comp: &Compression) -> BytesMut {
     if comp.threshold > 0 && raw_payload.len() >= comp.threshold as usize {
-        use flate2::write::ZlibEncoder;
         use flate2::Compression;
+        use flate2::write::ZlibEncoder;
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(raw_payload).unwrap();
         let compressed = encoder.finish().unwrap();
         let mut frame = BytesMut::new();
         let mut data_header = Vec::new();
-        ferrite_core::protocol::codec::write_var_int(&mut data_header, raw_payload.len() as i32);
+        core::protocol::codec::write_var_int(&mut data_header, raw_payload.len() as i32);
         let data_len = data_header.len() + compressed.len();
-        ferrite_core::protocol::codec::write_var_int(&mut frame, data_len as i32);
+        core::protocol::codec::write_var_int(&mut frame, data_len as i32);
         frame.extend_from_slice(&data_header);
         frame.extend_from_slice(&compressed);
         frame
@@ -634,8 +633,8 @@ fn encode_compressed_frame(raw_payload: &[u8], comp: &Compression) -> BytesMut {
         let mut frame = BytesMut::new();
         let data_header_len = var_int_len(0);
         let total = data_header_len + raw_payload.len();
-        ferrite_core::protocol::codec::write_var_int(&mut frame, total as i32);
-        ferrite_core::protocol::codec::write_var_int(&mut frame, 0);
+        core::protocol::codec::write_var_int(&mut frame, total as i32);
+        core::protocol::codec::write_var_int(&mut frame, 0);
         frame.extend_from_slice(raw_payload);
         frame
     }

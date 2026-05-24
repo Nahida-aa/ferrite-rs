@@ -16,7 +16,7 @@ pub enum NetworkEvent {
     ChunkData {
         x: i32,
         z: i32,
-        chunk: ferrite_core::chunk::Chunk,
+        chunk: core::chunk::Chunk,
     },
 }
 

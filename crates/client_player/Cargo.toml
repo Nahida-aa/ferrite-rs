@@ -1,21 +1,12 @@
 [package]
-name = "ferrite-client-player"
+name = "client_player"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
-ferrite-core = { path = "../ferrite-core" }
-ferrite-world = { path = "../world" }
-ferrite-gui = { path = "../ferrite-gui" }
-bevy = { version = "0.14", default-features = false, features = [
-    "bevy_winit",
-    "bevy_ui",
-    "bevy_render",
-    "bevy_core_pipeline",
-    "bevy_pbr",
-    "bevy_asset",
-    "default_font",
-    "x11",
-] }
+core.workspace = true
+world.workspace = true
+gui.workspace = true
+bevy.workspace = true
 glam = "0.29"
-tracing = "0.1"
+tracing.workspace = true

@@ -1,5 +1,5 @@
-use ferrite_core::block::BlockState;
-use ferrite_core::chunk::{Chunk, ChunkSection, SECTION_HEIGHT, CHUNK_WIDTH};
+use core::block::BlockState;
+use core::chunk::{Chunk, ChunkSection, SECTION_HEIGHT, CHUNK_WIDTH};
 
 const W: usize = CHUNK_WIDTH;
 

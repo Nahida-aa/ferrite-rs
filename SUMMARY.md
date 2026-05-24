@@ -31,7 +31,7 @@ Provide a working Minecraft client with world selection, server launch, LAN disc
 - Font restored to `aaxlMonoSC-Regular.ttf` (user's original CJK font). `UiFont` resource loaded via Bevy `AssetServer` at startup
 - `server-cli` crate created with `scan-lan` subcommand (CLI-only LAN scan, no Bevy dependency)
 - LAN discovery format corrected: vanilla Minecraft 1.21.8 uses `[MOTD]...[/MOTD][AD]...[/AD]` XML-style tags, not null-separated fields. Packets previously mistaken for "Bedrock" were actually Java Edition broadcasts
-- Shared LAN types (`DiscoveredServer`, `parse_lan_packet`, `create_lan_socket`) extracted to `ferrite-net/src/lan.rs`. Both `crates/client/` and `crates/server-cli/` import from `ferrite_net::lan`
+- Shared LAN types (`DiscoveredServer`, `parse_lan_packet`, `create_lan_socket`) extracted to `crates/network/src/lan.rs`. Both `crates/client/` and `crates/server-cli/` import from `network::lan`
 - World selection UI changed from direct-connect to click-to-select + "Play World" button. Selected world highlighted (yellow text), play button turns green when enabled
 - UI rebuild uses generation counter: only rebuilds when new servers discovered, not every frame (eliminates flicker)
 - `ferrite-gui` crate extracted from `server-client`: `player.rs`, `worlds.rs`, `lan_discovery.rs`, `ui/mod.rs` + `ui/menu.rs`, `ui/hud.rs`, `ui/pause.rs`, `ui/server_list.rs` moved to new crate.
@@ -51,7 +51,7 @@ Provide a working Minecraft client with world selection, server launch, LAN disc
 - Log rotation: per-run file in `logs/` folder, timestamped
 - Server startup on background thread to avoid blocking Bevy frame loop, polled via `PendingServerSpawn` resource
 - LAN discovery: always-on UDP socket (init once at first use, never close) to avoid bind/release race
-- LAN sharing: `create_lan_socket` in `ferrite-net::lan` shared by both CLI and client
+- LAN sharing: `create_lan_socket` in `network::lan` shared by both CLI and client
 - World select: click-to-select (not direct-connect), "Play World" button activates on selection, generation-based rebuild (MC-style)
 - GUI extraction: `ferrite-gui` as separate crate with all UI + player + worlds + lan types; client keeps only `net_plugin`, `server`, `chunk_mesh`, `main`
 
@@ -82,6 +82,6 @@ Provide a working Minecraft client with world selection, server launch, LAN disc
 - `crates/ferrite-gui/src/ui/server_list.rs`: `spawn_server_list()`, `update_server_list()` (generation-based), `LanServerButton`
 - `crates/ferrite-gui/src/ui/hud.rs`: HUD with entity ID / game mode display
 - `crates/ferrite-gui/src/ui/pause.rs`: pause menu (Back to Game, Disconnect)
-- `crates/ferrite-net/src/lan.rs`: shared `DiscoveredServer`, `parse_lan_packet`, `create_lan_socket`
-- `crates/server-cli/src/scan_lan.rs`: CLI-only LAN scan using `ferrite_net::lan`
+- `crates/network/src/lan.rs`: shared `DiscoveredServer`, `parse_lan_packet`, `create_lan_socket`
+- `crates/server-cli/src/scan_lan.rs`: CLI-only LAN scan using `network::lan`
 - `crates/server-cli/src/main.rs`: `scan-lan` subcommand with `clap`

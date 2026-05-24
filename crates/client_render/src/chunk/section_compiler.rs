@@ -2,7 +2,7 @@ use bevy::render::mesh::{Indices, Mesh, PrimitiveTopology};
 
 use crate::block::block_model_set::BlockModelSet;
 use crate::texture::texture_atlas::TextureAtlas;
-use ferrite_core::direction::{DOWN, EAST, NORTH, SOUTH, UP, WEST};
+use core::direction::{DOWN, EAST, NORTH, SOUTH, UP, WEST};
 
 /// Java 对照: net.minecraft.client.renderer.chunk.SectionCompiler
 pub struct SectionCompiler<'a> {
@@ -16,7 +16,7 @@ impl<'a> SectionCompiler<'a> {
     }
 
     /// Java 对照: SectionCompiler.compile
-    pub fn compile(&self, chunk: &ferrite_core::chunk::Chunk, chunk_x: i32, chunk_z: i32) -> Mesh {
+    pub fn compile(&self, chunk: &core::chunk::Chunk, chunk_x: i32, chunk_z: i32) -> Mesh {
         chunk_to_mesh(chunk, chunk_x, chunk_z, self.registry, self.atlas)
     }
 }
@@ -34,16 +34,16 @@ fn face_for_axis(axis: usize, pos_face: bool) -> usize {
 }
 
 pub fn chunk_to_mesh(
-    chunk: &ferrite_core::chunk::Chunk,
+    chunk: &core::chunk::Chunk,
     chunk_x: i32,
     chunk_z: i32,
     registry: &BlockModelSet,
     atlas: &TextureAtlas,
 ) -> Mesh {
     // Java 对照: SectionCompiler.compile -> ModelBlockRenderer.tesselateBlock
-    let size_x = ferrite_core::chunk::CHUNK_WIDTH as usize;
-    let size_z = ferrite_core::chunk::CHUNK_WIDTH as usize;
-    let size_y = chunk.sections.len() * ferrite_core::chunk::SECTION_HEIGHT;
+    let size_x = core::chunk::CHUNK_WIDTH as usize;
+    let size_z = core::chunk::CHUNK_WIDTH as usize;
+    let size_y = chunk.sections.len() * core::chunk::SECTION_HEIGHT;
 
     let base_x = chunk_x as f32 * 16.0;
     let base_z = chunk_z as f32 * 16.0;
@@ -53,7 +53,7 @@ pub fn chunk_to_mesh(
     let mut uvs: Vec<[f32; 2]> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
 
-    let air_raw = ferrite_core::block::BlockState::AIR.raw();
+    let air_raw = core::block::BlockState::AIR.raw();
     let get_raw = |x: isize, y: isize, z: isize| -> u16 {
         if x < 0
             || x >= size_x as isize
@@ -64,8 +64,8 @@ pub fn chunk_to_mesh(
         {
             return air_raw;
         }
-        let si = (y as usize) / ferrite_core::chunk::SECTION_HEIGHT;
-        let local_y = (y as usize) % ferrite_core::chunk::SECTION_HEIGHT;
+        let si = (y as usize) / core::chunk::SECTION_HEIGHT;
+        let local_y = (y as usize) % core::chunk::SECTION_HEIGHT;
         let idx = local_y * size_z * size_x + (z as usize) * size_x + (x as usize);
         chunk.sections[si].blocks[idx].raw()
     };

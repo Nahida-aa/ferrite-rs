@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
-use ferrite_net::lan::create_lan_socket;
+use network::lan::create_lan_socket;
 
 pub fn run(duration_secs: u64) {
     let socket = match create_lan_socket() {
@@ -28,7 +28,7 @@ pub fn run(duration_secs: u64) {
 
         match socket.recv_from(&mut buf) {
             Ok((len, src)) => {
-                if let Some(server) = ferrite_net::lan::parse_lan_packet(&buf[..len], src) {
+                if let Some(server) = network::lan::parse_lan_packet(&buf[..len], src) {
                     if seen.insert(server.address.clone()) {
                         println!(
                             "  {} | {} | {}/{} players | {}",

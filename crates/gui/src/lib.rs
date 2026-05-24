@@ -5,9 +5,8 @@ pub mod player;
 pub mod ui;
 pub mod worlds;
 
-pub use ferrite_net::lan::DiscoveredServer;
+pub use network::lan::DiscoveredServer;
 pub use ui::UIPlugin;
-
 
 // ── UI Resources ──
 
@@ -71,7 +70,7 @@ pub struct SelectedServer(pub Option<String>);
 
 // ── Player Resources ──
 
-use ferrite_world::entity::entity::{EntityPosition, EntityLook};
+use world::entity::entity::{EntityLook, EntityPosition};
 
 #[derive(Resource)]
 pub struct PlayerPosition(pub Option<EntityPosition>);

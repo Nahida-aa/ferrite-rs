@@ -1,25 +1,22 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use ferrite_gui::player::{CmdTx, PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerPosition};
-use ferrite_gui::ui::server_list::{JoinServerButton, LanServerButton};
-use ferrite_gui::worlds::{SelectedWorld, WorldManager};
-use ferrite_gui::{
-    ChunkCount, DebugOverlayUI, LanDiscoveryState, MainMenuUI, PauseMenuOpen, PauseMenuUI,
+use gui::player::{CmdTx, PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerPosition};
+use gui::ui::server_list::{JoinServerButton, LanServerButton};
+use gui::worlds::{SelectedWorld, WorldManager};
+use gui::{
+    ChunkCount, DebugOverlayUI, HUDUI, LanDiscoveryState, MainMenuUI, PauseMenuOpen, PauseMenuUI,
     PlayWorldButton, SelectedServer, ServerListUI, UiFont, UiRes, UiScreen, UiScreenState,
-    WorldEntryButton, WorldSelectUI, HUDUI,
+    WorldEntryButton, WorldSelectUI,
 };
-use ferrite_net::{Network, NetworkEvent as NetMsg};
-use ferrite_world::entity::entity::EntityPosition;
+use network::{Network, NetworkEvent as NetMsg};
 use tokio::runtime::Runtime;
+use world::entity::entity::EntityPosition;
 
 use crate::server::ServerHandle;
 use client_render::chunk::chunk_render_dispatcher::ChunkRenderRes;
 use client_render::chunk::section_compiler::chunk_to_mesh;
 use client_render::texture::texture_atlas::TextureAtlas;
-
-#[derive(Resource)]
-pub struct DemoMode(pub bool);
 
 #[derive(Resource)]
 pub struct NetworkRes {
@@ -41,6 +38,9 @@ pub struct PendingServerSpawn {
     pub handle: Option<std::thread::JoinHandle<anyhow::Result<ServerHandle>>>,
     pub address: Option<String>,
 }
+
+#[derive(Resource)]
+pub struct DemoMode(pub bool);
 
 #[derive(Resource)]
 pub struct CursorGrabState {
@@ -84,7 +84,7 @@ pub enum NetworkEvent {
     ChunkData {
         x: i32,
         z: i32,
-        chunk: ferrite_core::chunk::Chunk,
+        chunk: core::chunk::Chunk,
     },
 }
 
@@ -107,39 +107,27 @@ impl Plugin for NetworkPlugin {
         .init_resource::<PendingServerSpawn>()
         .insert_resource(ChunkEntities::default())
         .insert_resource(ChunkCount::default())
-        .insert_resource(ferrite_gui::DebugOverlayVisible(false))
+        .insert_resource(gui::DebugOverlayVisible(false))
         .insert_resource(DemoMode(false))
         .add_event::<NetworkEvent>()
         .add_systems(Update, button_system)
-        .add_systems(Update, ferrite_gui::ui::menu::update_world_select_highlight)
-        .add_systems(Update, ferrite_gui::ui::menu::update_play_button_visual)
+        .add_systems(Update, gui::ui::menu::update_world_select_highlight)
+        .add_systems(Update, gui::ui::menu::update_play_button_visual)
         .add_systems(Update, handle_pending_connect)
         .add_systems(Update, poll_server_startup)
         .add_systems(Update, drain_network_events_system)
         .add_systems(Update, handle_network_events_system)
         .add_systems(Update, ui_system)
         .add_systems(Update, lan_discovery_system)
-        .add_systems(Update, ferrite_gui::ui::server_list::update_server_list)
+        .add_systems(Update, gui::ui::server_list::update_server_list)
+        .add_systems(Update, gui::ui::server_list::update_server_list_highlight)
+        .add_systems(Update, gui::ui::server_list::update_join_button_visual)
+        .add_systems(Update, gui::ui::hud::hud_update_system)
+        .add_systems(Update, gui::ui::debug_overlay::debug_overlay_toggle_system)
+        .add_systems(Update, gui::ui::debug_overlay::debug_overlay_update_system)
         .add_systems(
             Update,
-            ferrite_gui::ui::server_list::update_server_list_highlight,
-        )
-        .add_systems(
-            Update,
-            ferrite_gui::ui::server_list::update_join_button_visual,
-        )
-        .add_systems(Update, ferrite_gui::ui::hud::hud_update_system)
-        .add_systems(
-            Update,
-            ferrite_gui::ui::debug_overlay::debug_overlay_toggle_system,
-        )
-        .add_systems(
-            Update,
-            ferrite_gui::ui::debug_overlay::debug_overlay_update_system,
-        )
-        .add_systems(
-            Update,
-            ferrite_gui::ui::debug_overlay::debug_overlay_visibility_system,
+            gui::ui::debug_overlay::debug_overlay_visibility_system,
         )
         .add_systems(Update, cursor_grab_system);
     }
@@ -672,13 +660,13 @@ fn ui_system(
             commands.entity(entity).despawn_recursive();
         }
         if hud_query.is_empty() {
-            ferrite_gui::ui::hud::spawn_hud(&mut commands, &info, &fonts.0);
+            gui::ui::hud::spawn_hud(&mut commands, &info, &fonts.0);
         }
         if debug_overlay_query.is_empty() {
-            ferrite_gui::ui::debug_overlay::spawn_debug_overlay(&mut commands, &fonts.0);
+            gui::ui::debug_overlay::spawn_debug_overlay(&mut commands, &fonts.0);
         }
         if paused.0 && pause_query.is_empty() {
-            ferrite_gui::ui::pause::spawn_pause_menu(&mut commands, &fonts.0);
+            gui::ui::pause::spawn_pause_menu(&mut commands, &fonts.0);
         }
         if !paused.0 {
             for entity in pause_query.iter() {
@@ -720,7 +708,7 @@ fn ui_system(
                     commands.entity(entity).despawn_recursive();
                 }
                 if world_select_query.is_empty() {
-                    ferrite_gui::ui::menu::spawn_world_select(&mut commands, &worlds, &fonts.0);
+                    gui::ui::menu::spawn_world_select(&mut commands, &worlds, &fonts.0);
                 }
             }
             UiScreen::ServerList => {
@@ -731,7 +719,7 @@ fn ui_system(
                     commands.entity(entity).despawn_recursive();
                 }
                 if server_list_query.is_empty() {
-                    ferrite_gui::ui::server_list::spawn_server_list(&mut commands, &fonts.0);
+                    gui::ui::server_list::spawn_server_list(&mut commands, &fonts.0);
                 }
             }
             UiScreen::MainMenu => {
@@ -742,7 +730,7 @@ fn ui_system(
                     commands.entity(entity).despawn_recursive();
                 }
                 if menu_query.is_empty() {
-                    ferrite_gui::ui::menu::spawn_menu(&mut commands, &ui, &fonts.0);
+                    gui::ui::menu::spawn_menu(&mut commands, &ui, &fonts.0);
                 }
             }
         }

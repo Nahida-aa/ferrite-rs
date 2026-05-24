@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 
-use crate::{
-    DebugOverlayUI, DebugOverlayVisible, PlayerInfoRes, PlayerLook, PlayerPosition,
-};
+use crate::{DebugOverlayUI, DebugOverlayVisible, PlayerInfoRes, PlayerLook, PlayerPosition};
 
 const VERSION: &str = "1.21.8";
 const RUST_VERSION: &str = env!("CARGO_PKG_RUST_VERSION");
@@ -42,7 +40,7 @@ pub fn spawn_debug_overlay(commands: &mut Commands, font: &Handle<Font>) {
 
 fn generate_lines(
     fps: f64,
-    player_pos: Option<&ferrite_world::entity::entity::EntityPosition>,
+    player_pos: Option<&world::entity::entity::EntityPosition>,
     info: Option<&PlayerInfoRes>,
     look: Option<&PlayerLook>,
     chunk_count: Option<usize>,
@@ -82,7 +80,13 @@ fn generate_lines(
         .map(|e| format!("{e}"))
         .unwrap_or_else(|| "??".to_string());
     let yaw_pitch = look
-        .map(|l| format!("{:.0} / {:.1}", l.0.yaw.to_degrees(), l.0.pitch.to_degrees()))
+        .map(|l| {
+            format!(
+                "{:.0} / {:.1}",
+                l.0.yaw.to_degrees(),
+                l.0.pitch.to_degrees()
+            )
+        })
         .unwrap_or_else(|| "? / ?".to_string());
 
     let chunks_str = chunk_count

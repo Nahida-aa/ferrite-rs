@@ -10,7 +10,7 @@ Rust 编写的 Minecraft
 
 ```mermaid
 flowchart LR
-	MC[兼容 Minecraft 协议的服务端] --> NET[ferrite-net\n TCP + 加密 + 压缩 + 分包]
+	MC[兼容 Minecraft 协议的服务端] --> NET[network\n TCP + 加密 + 压缩 + 分包]
 	NET --> CORE[ferrite-core\n 协议包, 编解码, 通用类型]
 	CORE --> ECS[Bevy ECS\n 玩家状态 / UI / 游戏逻辑]
 	ECS --> RENDER[渲染与界面\n wgpu + bevy + bevy_ui + kira]
@@ -19,7 +19,7 @@ flowchart LR
 ### 工作区划分
 
 - [crates/ferrite-core](crates/ferrite-core) — 共享协议模型和基础工具：NBT、Block、Chunk、Position、协议包定义、VarInt/字符串/UUID 编解码。
-- [crates/ferrite-net](crates/ferrite-net) — 网络连接、加密、压缩、帧处理和登录/配置/游戏状态机。
+- [crates/network](crates/network) — 网络连接、加密、压缩、帧处理和登录/配置/游戏状态机。
 - [crates/ferrite-gui](crates/ferrite-gui) — UI、玩家控制、世界管理、LAN 发现的共享类型和系统，被 client 和 server-cli 共用。
 - [crates/client](crates/client) — 客户端运行时：Bevy App、网络连接、ECS 状态、渲染与输入。
 - [crates/server-cli](crates/server-cli) — 服务器命令行工具：ping、status、scan-lan、serve（启动本地 FerrumC 服务端）。
@@ -35,7 +35,7 @@ flowchart LR
 ### 设计原则
 
 - 通用协议字节编解码放在 ferrite-core，避免 client 重复实现。
-- 加密、压缩、读取网络帧等传输层逻辑放在 ferrite-net。
+- 加密、压缩、读取网络帧等传输层逻辑放在 network。
 - 业务状态通过 Bevy ECS 和消息通道在网络层与渲染/UI 层之间流动。
 
 ## 技术栈

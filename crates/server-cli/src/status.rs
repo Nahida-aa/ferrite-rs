@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use bytes::BytesMut;
-use ferrite_core::protocol::codec::{read_var_int, write_var_int};
-use ferrite_core::protocol::packets::handshake::Handshake;
-use ferrite_core::protocol::packets::status::{
+use core::protocol::codec::{read_var_int, write_var_int};
+use core::protocol::packets::handshake::Handshake;
+use core::protocol::packets::status::{
     PingRequest, PongResponse, StatusRequest, StatusResponse,
 };
 use serde_json::Value;
@@ -29,7 +29,7 @@ pub async fn query_server_status(address: &str) -> Result<ServerStatusReport> {
     let (mut reader, mut writer) = stream.into_split();
 
     let handshake = Handshake {
-        protocol_version: ferrite_core::protocol::packets::PROTOCOL_VERSION,
+        protocol_version: core::protocol::packets::PROTOCOL_VERSION,
         server_address: address.to_string(),
         server_port: 25565,
         next_state: 1,

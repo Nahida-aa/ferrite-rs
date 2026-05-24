@@ -5,8 +5,8 @@ mod server;
 use std::fs::OpenOptions;
 
 use bevy::prelude::*;
-use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::prelude::*;
 
 fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all("logs/ferrite").ok();
@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
         .from_env_lossy();
     filter = filter.add_directive("info".parse().unwrap());
     filter = filter.add_directive("ferrite_client=debug".parse().unwrap());
-    filter = filter.add_directive("ferrite_gui=debug".parse().unwrap());
+    filter = filter.add_directive("gui=debug".parse().unwrap());
 
     let file_layer = tracing_subscriber::fmt::layer()
         .with_writer(log_file)
@@ -46,8 +46,8 @@ fn main() -> anyhow::Result<()> {
     app.add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>());
     app.add_plugins((
         net_plugin::NetworkPlugin,
-        ferrite_gui::player::PlayerPlugin,
-        ferrite_gui::UIPlugin,
+        gui::player::PlayerPlugin,
+        gui::UIPlugin,
         client_render::chunk::chunk_render_dispatcher::RenderPlugin,
         bevy_diagnostic::FrameTimeDiagnosticsPlugin,
     ));

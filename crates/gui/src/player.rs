@@ -1,10 +1,12 @@
-use bevy::prelude::*;
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::prelude::*;
 use tokio::sync::mpsc;
 
-pub use crate::{PauseMenuOpen, PlayerBlock, PlayerInfoRes, PlayerLook, PlayerPosition, PlayerBlockEntity};
-use ferrite_world::entity::entity::EntityPosition;
-use ferrite_net::NetworkCommand;
+pub use crate::{
+    PauseMenuOpen, PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerLook, PlayerPosition,
+};
+use network::NetworkCommand;
+use world::entity::entity::EntityPosition;
 
 #[derive(Resource)]
 pub struct CmdTx(pub Option<mpsc::Sender<NetworkCommand>>);
@@ -65,7 +67,11 @@ fn camera_follow_player(
     mut block_query: Query<&mut Transform, (With<PlayerBlock>, Without<Camera3d>)>,
 ) {
     if let Some(ref pos_entity) = player.0 {
-        let pos = Vec3::new(pos_entity.x as f32, pos_entity.y as f32, pos_entity.z as f32);
+        let pos = Vec3::new(
+            pos_entity.x as f32,
+            pos_entity.y as f32,
+            pos_entity.z as f32,
+        );
         let behind = Vec3::new(look.0.yaw.sin(), 0.0, -look.0.yaw.cos());
         let up = Vec3::new(0.0, pitch_offset(look.0.pitch), 0.0);
         let dist = 4.0;
@@ -125,7 +131,11 @@ fn movement_system(
     let new_x = x + delta.x as f64;
     let new_z = z + delta.z as f64;
 
-    player.0 = Some(EntityPosition { x: new_x, y, z: new_z });
+    player.0 = Some(EntityPosition {
+        x: new_x,
+        y,
+        z: new_z,
+    });
 
     if let Some(sender) = &cmd_tx.0 {
         let _ = sender.try_send(NetworkCommand::SetPosition {

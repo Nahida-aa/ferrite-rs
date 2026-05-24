@@ -26,11 +26,11 @@ impl ServerHandle {
 
         tracing::info!("Starting FerrumC from: {}", binary.display());
 
-        ferrite_gui::worlds::write_server_config(Path::new("."), db_path)?;
+        gui::worlds::write_server_config(Path::new("."), db_path)?;
 
         // Import Anvil → LMDB if the world hasn't been imported yet.
         let world_dir = Path::new(db_path);
-        if ferrite_gui::worlds::WorldManager::needs_import(world_dir) {
+        if gui::worlds::WorldManager::needs_import(world_dir) {
             tracing::info!("Importing world from {}...", world_dir.display());
             let mut import_child = Command::new(&binary)
                 .arg("import")
@@ -124,9 +124,7 @@ impl ServerHandle {
 
     fn kill_existing() {
         // Kill exact process names to avoid matching unrelated processes
-        let _ = Command::new("pkill")
-            .args(["-x", "ferrumc"])
-            .output();
+        let _ = Command::new("pkill").args(["-x", "ferrumc"]).output();
         let _ = Command::new("pkill")
             .args(["-x", "ferrite-server"])
             .output();
@@ -179,7 +177,12 @@ fn find_ferrumc() -> Option<PathBuf> {
     // 2. Current directory
     // NOTE: `ferrumc/` is the git submodule directory, NOT a binary.
     // The copied local binary lives as `ferrite-server` to avoid the name clash.
-    for name in &["ferrite-server", "ferrite-server.exe", "ferrumc", "ferrumc.exe"] {
+    for name in &[
+        "ferrite-server",
+        "ferrite-server.exe",
+        "ferrumc",
+        "ferrumc.exe",
+    ] {
         let p = PathBuf::from(name);
         if p.is_file() {
             return Some(PathBuf::from("./").join(name));

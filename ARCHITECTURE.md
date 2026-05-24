@@ -2,10 +2,10 @@
 
 ## 现状
 
-- `ferrite-core`、`ferrite-net`、`ferrite-client` 已拆分清楚。
+- `ferrite-core`、`network`、`client` 已拆分清楚。
 - 客户端已经进入 Bevy ECS，网络事件也已经走 Bevy Event。
 - UI 当前使用 `bevy_ui`，不是 `bevy_egui`。
-- 协议编解码保留在 `ferrite-core`，传输层留在 `ferrite-net`。
+- 协议编解码保留在 `ferrite-core`，传输层留在 `network`。
 
 ## 已确认的方向
 
@@ -18,9 +18,9 @@
 - `ferrite-core`
   - 共享协议包、VarInt、字符串、UUID 编解码。
   - 只放纯逻辑，不依赖 Bevy。
-- `ferrite-net`
+- `network`
   - TCP、加密、压缩、分包、登录/配置/游戏状态机。
-- `ferrite-client`
+- `client`
   - Bevy App、玩家状态、网络事件、`bevy_ui` 界面。
 
 ## 关键文件
@@ -29,7 +29,7 @@
 - [crates/client/src/game.rs](crates/client/src/game.rs) — 游戏插件组装。
 - [crates/client/src/net_plugin.rs](crates/client/src/net_plugin.rs) — 网络事件与 ECS 同步。
 - [crates/client/src/ui.rs](crates/client/src/ui.rs) — 菜单、HUD、暂停界面。
-- [crates/ferrite-net/src/network/connection.rs](crates/ferrite-net/src/network/connection.rs) — 网络连接与状态机。
+- [crates/network/src/network/connection.rs](crates/network/src/network/connection.rs) — 网络连接与状态机。
 - [crates/ferrite-core/src/protocol/codec.rs](crates/ferrite-core/src/protocol/codec.rs) — 协议编解码复用点。
 
 ## 接下来推进

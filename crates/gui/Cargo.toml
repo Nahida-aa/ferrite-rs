@@ -1,21 +1,16 @@
 [package]
-name = "client"
+name = "gui"
 version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
 core.workspace = true
 network.workspace = true
-gui.workspace = true
 world.workspace = true
-client_render.workspace = true
 bevy.workspace = true
+bevy_diagnostic.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
 anyhow.workspace = true
 rand.workspace = true
 chrono.workspace = true
-bevy_diagnostic.workspace = true
-image.workspace = true
-zip.workspace = true

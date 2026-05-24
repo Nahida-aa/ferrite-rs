@@ -1,4 +1,4 @@
-use ferrite_core::direction::Direction;
+use core::direction::Direction;
 
 pub struct BakedQuad {
     pub texture_name: String,

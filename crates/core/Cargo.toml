@@ -1,0 +1,15 @@
+[package]
+name = "core"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy_ecs.workspace = true
+tokio = { workspace = true, features = ["net", "io-util"] }
+bytes.workspace = true
+serde = { workspace = true, features = ["derive"] }
+thiserror = "2"
+tracing.workspace = true
+uuid = { workspace = true, features = ["serde"] }
+glam = "0.29"

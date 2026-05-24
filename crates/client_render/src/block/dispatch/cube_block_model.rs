@@ -1,7 +1,7 @@
 use super::block_state_model::BlockStateModel;
 use super::block_state_model_part::BlockStateModelPart;
 use client_resources::model::geometry::baked_quad::BakedQuad;
-use ferrite_core::direction::Direction;
+use core::direction::Direction;
 
 #[derive(Clone, Copy)]
 pub struct BlockFace {

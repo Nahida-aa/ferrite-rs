@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::baked_quad::BakedQuad;
-use ferrite_core::direction::Direction;
+use core::direction::Direction;
 
 pub struct QuadCollection {
     pub by_direction: HashMap<Direction, Vec<BakedQuad>>,

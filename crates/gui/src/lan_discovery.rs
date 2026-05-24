@@ -5,7 +5,7 @@ use std::thread;
 /// Call `init()` once at startup to bind the socket and start listening.
 #[derive(Clone, Default)]
 pub struct LanState {
-    pub servers: Arc<Mutex<Vec<ferrite_net::lan::DiscoveredServer>>>,
+    pub servers: Arc<Mutex<Vec<network::lan::DiscoveredServer>>>,
     pub available: Arc<Mutex<bool>>,
 }
 
@@ -18,7 +18,7 @@ impl LanState {
 
         let servers = self.servers.clone();
 
-        let socket = match ferrite_net::lan::create_lan_socket() {
+        let socket = match network::lan::create_lan_socket() {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("[Ferrite] LAN discovery unavailable (port 4445): {e}");
@@ -34,10 +34,9 @@ impl LanState {
             loop {
                 match socket.recv_from(&mut buf) {
                     Ok((len, src)) => {
-                        if let Some(server) = ferrite_net::lan::parse_lan_packet(&buf[..len], src) {
+                        if let Some(server) = network::lan::parse_lan_packet(&buf[..len], src) {
                             let mut list = servers.lock().unwrap();
-                            if let Some(pos) =
-                                list.iter().position(|s| s.address == server.address)
+                            if let Some(pos) = list.iter().position(|s| s.address == server.address)
                             {
                                 list[pos] = server;
                             } else {
@@ -56,7 +55,7 @@ impl LanState {
         *self.available.lock().unwrap()
     }
 
-    pub fn take_servers(&self) -> Vec<ferrite_net::lan::DiscoveredServer> {
+    pub fn take_servers(&self) -> Vec<network::lan::DiscoveredServer> {
         std::mem::take(&mut *self.servers.lock().unwrap())
     }
 }
