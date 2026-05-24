@@ -1,4 +1,3 @@
-use bevy::prelude::*;
 use bevy::render::mesh::{Indices, Mesh, PrimitiveTopology};
 
 // Greedy meshing for axis-aligned block chunks.

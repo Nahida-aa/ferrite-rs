@@ -1,51 +1,11 @@
 use bevy::prelude::*;
+use tokio::sync::mpsc;
 
+pub use crate::{PauseMenuOpen, PlayerBlock, PlayerInfoRes, PlayerLookRes, PlayerRes, PlayerBlockEntity};
 use ferrite_net::NetworkCommand;
 
-// ── Resources ──
-
 #[derive(Resource)]
-pub struct PlayerRes {
-    pub position: Option<(f64, f64, f64)>,
-}
-
-#[derive(Resource)]
-pub struct PlayerInfoRes {
-    pub entity_id: Option<i32>,
-    pub game_mode: Option<u8>,
-}
-
-impl Default for PlayerInfoRes {
-    fn default() -> Self {
-        Self {
-            entity_id: None,
-            game_mode: None,
-        }
-    }
-}
-
-#[derive(Resource)]
-pub struct PlayerLookRes {
-    pub yaw: f32,
-    pub pitch: f32,
-}
-
-impl Default for PlayerLookRes {
-    fn default() -> Self {
-        Self {
-            yaw: 0.0,
-            pitch: 0.3,
-        }
-    }
-}
-
-#[derive(Component)]
-pub struct PlayerBlock;
-
-#[derive(Resource)]
-pub struct PlayerBlockEntity(pub Option<Entity>);
-
-// ── Plugin ──
+pub struct CmdTx(pub Option<mpsc::Sender<NetworkCommand>>);
 
 pub struct PlayerPlugin;
 
@@ -54,17 +14,16 @@ impl Plugin for PlayerPlugin {
         app.insert_resource(PlayerRes { position: None })
             .insert_resource(PlayerInfoRes::default())
             .insert_resource(PlayerLookRes::default())
-            .insert_resource(PlayerBlockEntity(None))
+            .insert_resource(crate::PlayerBlockEntity(None))
+            .insert_resource(CmdTx(None))
             .add_systems(Update, (look_system, camera_follow_player, movement_system));
     }
 }
 
-// ── Mouse look ──
-
 fn look_system(
     mut mouse_events: EventReader<bevy::input::mouse::MouseMotion>,
     mut look: ResMut<PlayerLookRes>,
-    paused: Res<crate::ui::PauseMenuOpen>,
+    paused: Res<PauseMenuOpen>,
 ) {
     if paused.0 {
         return;
@@ -74,8 +33,6 @@ fn look_system(
         look.pitch = (look.pitch - ev.delta.y * 0.005).clamp(-1.5, 1.5);
     }
 }
-
-// ── Camera ──
 
 fn camera_follow_player(
     player: Res<PlayerRes>,
@@ -102,14 +59,12 @@ fn pitch_offset(pitch: f32) -> f32 {
     2.0 + pitch * 1.0
 }
 
-// ── Movement ──
-
 fn movement_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     look: Res<PlayerLookRes>,
     mut player: ResMut<PlayerRes>,
-    cmd_tx: Res<crate::net_plugin::CmdTx>,
-    paused: Res<crate::ui::PauseMenuOpen>,
+    cmd_tx: Res<CmdTx>,
+    paused: Res<PauseMenuOpen>,
 ) {
     if paused.0 {
         return;

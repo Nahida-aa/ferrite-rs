@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use super::PauseMenuUI;
+use crate::PauseMenuUI;
 
-pub(super) fn spawn_pause_menu(commands: &mut Commands, font: &Handle<Font>) {
+pub fn spawn_pause_menu(commands: &mut Commands, font: &Handle<Font>) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -13,26 +13,11 @@ pub(super) fn spawn_pause_menu(commands: &mut Commands, font: &Handle<Font>) {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            background_color: Color::srgba(0.0, 0.0, 0.0, 0.6).into(),
+            background_color: Color::srgba(0.0, 0.0, 0.0, 0.5).into(),
             ..default()
         })
         .insert(PauseMenuUI)
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Paused",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 48.0,
-                    color: Color::WHITE,
-                },
-            ));
-            parent.spawn(NodeBundle {
-                style: Style {
-                    height: Val::Px(30.0),
-                    ..default()
-                },
-                ..default()
-            });
             btn(parent, "Back to Game", font);
             parent.spawn(NodeBundle {
                 style: Style {
@@ -42,14 +27,6 @@ pub(super) fn spawn_pause_menu(commands: &mut Commands, font: &Handle<Font>) {
                 ..default()
             });
             btn(parent, "Disconnect", font);
-            parent.spawn(NodeBundle {
-                style: Style {
-                    height: Val::Px(10.0),
-                    ..default()
-                },
-                ..default()
-            });
-            btn(parent, "Quit", font);
         });
 }
 

@@ -1,10 +1,6 @@
 mod chunk_mesh;
-mod game;
 mod net_plugin;
-mod player;
 mod server;
-mod ui;
-mod worlds;
 
 use std::fs::OpenOptions;
 
@@ -35,11 +31,15 @@ fn main() -> anyhow::Result<()> {
     let mut app = App::new();
     app.insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.05)));
     app.add_plugins(DefaultPlugins);
-    app.add_plugins(game::GamePlugin);
+    app.add_plugins((
+        net_plugin::NetworkPlugin,
+        ferrite_gui::player::PlayerPlugin,
+        ferrite_gui::UIPlugin,
+    ));
 
     if auto_connect {
         app.world_mut()
-            .resource_mut::<game::PendingConnect>()
+            .resource_mut::<net_plugin::PendingConnect>()
             .0
             .push(("localhost:25565".to_string(), true, Some("world".to_string())));
     }

@@ -1,8 +1,18 @@
 [workspace]
+resolver = "2"
 members = [
     "crates/ferrite-core",
     "crates/ferrite-net",
     "crates/client",
     "crates/cli",
+    # Tooling
 ]
-resolver = "2"
+default-members = ["crates/client"]
+
+[workspace.package]
+publish = false
+edition = "2024"
+
+[workspace.dependencies]
+# Workspace member crates
+# External crates

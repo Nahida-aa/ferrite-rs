@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+mod scan_lan;
 mod status;
 
 #[derive(Parser)]
@@ -14,6 +15,11 @@ enum Command {
     Ping { address: String },
     /// Query server status
     Status { address: String },
+    /// Scan local network for Minecraft LAN games
+    ScanLan {
+        #[arg(default_value = "5")]
+        duration: u64,
+    },
 }
 
 #[tokio::main]
@@ -35,6 +41,9 @@ async fn main() -> anyhow::Result<()> {
             println!("Players: {}/{}", report.players_online, report.players_max);
             println!("Description: {}", report.description);
             println!("Latency: {} ms", report.latency_ms);
+        }
+        Command::ScanLan { duration } => {
+            scan_lan::run(duration);
         }
     }
     Ok(())

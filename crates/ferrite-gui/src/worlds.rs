@@ -41,7 +41,6 @@ impl WorldManager {
         PathBuf::from("saves")
     }
 
-    /// Check if an Anvil-format world needs importing (has `region/` dir but no LMDB data).
     pub fn needs_import(db_path: &Path) -> bool {
         let has_anvil = db_path.join("region").is_dir();
         let has_lmdb = db_path.join("data.mdb").is_file();
@@ -49,9 +48,6 @@ impl WorldManager {
     }
 }
 
-/// Write ferrumc config to `root/configs/config.toml`.
-///
-/// `root` must be the parent directory of the ferrumc binary (i.e. `get_root_path()`).
 pub fn write_server_config(root: &Path, db_path: &str) -> anyhow::Result<()> {
     let config_dir = root.join("configs");
     std::fs::create_dir_all(&config_dir)?;

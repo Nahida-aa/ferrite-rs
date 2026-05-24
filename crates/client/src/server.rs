@@ -26,11 +26,11 @@ impl ServerHandle {
 
         tracing::info!("Starting FerrumC from: {}", binary.display());
 
-        crate::worlds::write_server_config(Path::new("."), db_path)?;
+        ferrite_gui::worlds::write_server_config(Path::new("."), db_path)?;
 
         // Import Anvil → LMDB if the world hasn't been imported yet.
         let world_dir = Path::new(db_path);
-        if crate::worlds::WorldManager::needs_import(world_dir) {
+        if ferrite_gui::worlds::WorldManager::needs_import(world_dir) {
             tracing::info!("Importing world from {}...", world_dir.display());
             let mut import_child = Command::new(&binary)
                 .arg("import")
@@ -123,11 +123,13 @@ impl ServerHandle {
     }
 
     fn kill_existing() {
-        // Try pkill first (Linux/macOS)
+        // Kill exact process names to avoid matching unrelated processes
         let _ = Command::new("pkill")
-            .args(["-f", "ferrumc"])
+            .args(["-x", "ferrumc"])
             .output();
-        // Give it a moment to release the port
+        let _ = Command::new("pkill")
+            .args(["-x", "ferrite-server"])
+            .output();
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
 

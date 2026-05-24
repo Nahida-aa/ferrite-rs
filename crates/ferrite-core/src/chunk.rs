@@ -67,6 +67,14 @@ impl Chunk {
             if (primary_bit_mask >> section_index) & 1 == 1 {
                 // read palette length
                 let palette_len = read_var_int(buf)? as usize;
+
+                // Basic sanity limits to avoid OOM / capacity overflow from malformed input.
+                // A section cannot reasonably have an enormous palette; cap it.
+                const MAX_PALETTE_LEN: usize = 4096;
+                if palette_len > MAX_PALETTE_LEN {
+                    return None;
+                }
+
                 let mut palette = Vec::with_capacity(palette_len);
                 for _ in 0..palette_len {
                     let entry = read_var_int(buf)? as u16;
@@ -75,9 +83,22 @@ impl Chunk {
 
                 // read data array length (number of longs)
                 let long_count = read_var_int(buf)? as usize;
-                if buf.len() < long_count * 8 {
+
+                // determine bits per block (from palette) and compute a sane upper bound
+                let bits_per_block = (palette_len.max(1) as f32).log2().ceil() as usize;
+                let bits_per_block = bits_per_block.max(4);
+
+                // maximum longs needed for one section
+                let max_long_count = (blocks_per_section * bits_per_block + 63) / 64;
+                if long_count > max_long_count {
                     return None;
                 }
+
+                // ensure buffer has enough bytes for the declared longs
+                if buf.len() < long_count.saturating_mul(8) {
+                    return None;
+                }
+
                 let mut data = Vec::with_capacity(long_count);
                 for _ in 0..long_count {
                     // read little-endian u64
@@ -87,10 +108,6 @@ impl Chunk {
                     }
                     data.push(u64::from_le_bytes(le));
                 }
-
-                // determine bits per block
-                let bits_per_block = (palette_len.max(1) as f32).log2().ceil() as usize;
-                let bits_per_block = bits_per_block.max(4);
 
                 // unpack blocks
                 let mut sec = ChunkSection::new();

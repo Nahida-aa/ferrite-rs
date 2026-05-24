@@ -19,3 +19,7 @@
 *.log
 
 /tmp
+
+# Downloaded Minecraft source for reference
+/mc-src
+**/.cache
