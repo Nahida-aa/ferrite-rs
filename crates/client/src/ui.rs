@@ -73,10 +73,9 @@ impl Plugin for UIPlugin {
 }
 
 fn load_ui_font(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Use Noto Sans SC (supports Chinese) as the default UI font so Chinese
-    // characters render correctly. The file is stored under
-    // `crates/client/assets/fonts/NotoSansSC.ttf`.
-    commands.insert_resource(UiFont(asset_server.load("fonts/NotoSansSC.ttf")));
+    // Use JetBrains Mono Nerd Font as the default UI font.
+    // The file is stored under `crates/client/assets/fonts/JetBrainsMonoNerdFont.ttf`.
+    commands.insert_resource(UiFont(asset_server.load("fonts/JetBrainsMonoNerdFont.ttf")));
 }
 
 // ── Camera & Ground (Startup) ──
