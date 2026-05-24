@@ -9,12 +9,12 @@
     "build:release": "cargo build --release",
     "check": "cargo check",
     "test": "cargo test",
-    "server": "./ferrite-server",
+    "server": "cargo run --package server-cli -- serve",
     "scan-lan": "cargo run --package server-cli -- scan-lan",
     "test:vanilla": "cargo run --package mc-launcher-cli -- --version 1.21.8 --username aa",
     "decompile": "cargo run --package mc-src-cli",
     "fmt": "cargo fmt --all",
-    "stats": "cloc . --exclude-dir=node_modules,dist,.output,.tanstack,.content-collections,project.inlang,data,paraglide,vendor,.turbo,.next,target,logs",
+    "stats": "cloc . --exclude-dir=node_modules,dist,.output,.tanstack,.content-collections,project.inlang,data,paraglide,vendor,.turbo,.next,target,logs,mc-src",
     "stats:git": "cloc . --exclude-dir=node_modules,dist,.output,.tanstack,.content-collections,project.inlang,data,paraglide,vendor,.turbo,.next,target,logs --vcs git"
   }
 }

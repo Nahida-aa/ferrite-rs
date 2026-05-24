@@ -13,6 +13,8 @@ use ferrite_gui::worlds::{SelectedWorld, WorldManager};
 use ferrite_gui::ui::server_list::{JoinServerButton, LanServerButton};
 
 use crate::chunk_mesh::chunk_to_mesh;
+use crate::render::atlas::TextureAtlasRes;
+use crate::render::block_models::BlockRegistry;
 use crate::server::ServerHandle;
 
 #[derive(Resource)]
@@ -46,6 +48,24 @@ pub struct CursorGrabState {
 #[derive(Resource, Default)]
 pub struct ChunkEntities {
     pub entities: HashMap<(i32, i32), Entity>,
+    pub chunk_material: Option<Handle<StandardMaterial>>,
+}
+
+/// Shared PBR material for all chunk meshes (uses texture atlas).
+pub fn get_chunk_material(
+    materials: &mut Assets<StandardMaterial>,
+    entities: &mut ChunkEntities,
+    atlas: &TextureAtlasRes,
+) -> Handle<StandardMaterial> {
+    if let Some(ref handle) = entities.chunk_material {
+        return handle.clone();
+    }
+    let handle = materials.add(StandardMaterial {
+        base_color_texture: Some(atlas.atlas_handle.clone()),
+        ..Default::default()
+    });
+    entities.chunk_material = Some(handle.clone());
+    handle
 }
 
 #[derive(Event, Debug)]
@@ -262,6 +282,8 @@ fn handle_network_events_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    registry: Res<BlockRegistry>,
+    atlas: Res<TextureAtlasRes>,
 ) {
     for event in events.read() {
         match event {
@@ -328,18 +350,18 @@ fn handle_network_events_system(
             }
             NetworkEvent::ChunkData { x, z, chunk } => {
                 tracing::info!("Building merged mesh for chunk at ({},{})", x, z);
-                let mesh = chunk_to_mesh(chunk, *x, *z);
-                let handle = meshes.add(mesh);
-                let material = materials.add(StandardMaterial {
-                    base_color: Color::srgb(1.0, 1.0, 1.0),
-                    ..default()
-                });
-                let entity = commands.spawn(PbrBundle {
-                    mesh: handle,
-                    material,
-                    transform: Transform::IDENTITY,
-                    ..default()
-                }).id();
+                let mesh = chunk_to_mesh(chunk, *x, *z, &*registry, &*atlas);
+                let mesh_handle = meshes.add(mesh);
+                let material_handle =
+                    get_chunk_material(&mut materials, &mut chunk_entities, &atlas);
+                let entity = commands
+                    .spawn(PbrBundle {
+                        mesh: mesh_handle,
+                        material: material_handle,
+                        transform: Transform::IDENTITY,
+                        ..default()
+                    })
+                    .id();
 
                 // Dedup: despawn old mesh for the same chunk
                 if let Some(old) = chunk_entities.entities.insert((*x, *z), entity) {

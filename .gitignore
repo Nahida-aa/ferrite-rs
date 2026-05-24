@@ -8,11 +8,11 @@
 .env
 
 *.mdb
-/world
 /world/*
 /worlds/*
+/worlds/
 /saves/*
-
+/saves/
 /tmp
 
 # Downloaded Minecraft source for reference
@@ -25,3 +25,6 @@
 # Log files anywhere
 *.log
 /logs/
+/logs/*
+
+**/assets/minecraft/

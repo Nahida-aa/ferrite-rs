@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod scan_lan;
+mod serve;
 mod status;
 
 #[derive(Parser)]
@@ -19,6 +20,15 @@ enum Command {
     ScanLan {
         #[arg(default_value = "5")]
         duration: u64,
+    },
+    /// Run a local FerrumC server
+    Serve {
+        #[arg(short, long, default_value = "25565")]
+        port: u16,
+        #[arg(long)]
+        online_mode: bool,
+        #[arg(long)]
+        rebuild: bool,
     },
 }
 
@@ -44,6 +54,18 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::ScanLan { duration } => {
             scan_lan::run(duration);
+        }
+        Command::Serve {
+            port,
+            online_mode,
+            rebuild,
+        } => {
+            let cfg = serve::ServeConfig {
+                port,
+                online_mode,
+                rebuild,
+            };
+            serve::serve(cfg).await?;
         }
     }
     Ok(())

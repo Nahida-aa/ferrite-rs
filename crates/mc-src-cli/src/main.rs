@@ -1,9 +1,7 @@
-#![allow(dead_code)]
-
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::Command as StdCommand;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use serde::Deserialize;
 
 const CFR_URL: &str =
@@ -38,16 +36,38 @@ impl Default for Config {
 // ---------------------------------------------------------------------------
 
 #[derive(Parser)]
-#[command(name = "mc-src-cli", about = "Decompile Minecraft jar to readable Java source")]
+#[command(name = "mc-src-cli")]
 struct Cli {
-    #[arg(long)]
-    versions: Vec<String>,
+    #[command(subcommand)]
+    command: Sub,
+}
 
-    #[arg(long, default_value = ".minecraft")]
-    minecraft_dir: PathBuf,
+#[derive(Subcommand)]
+enum Sub {
+    /// Decompile Minecraft jar to readable Java source
+    Decompile {
+        #[arg(long)]
+        versions: Vec<String>,
 
-    #[arg(long, default_value = "mc-src")]
-    output_dir: PathBuf,
+        #[arg(long, default_value = ".minecraft")]
+        minecraft_dir: PathBuf,
+
+        #[arg(long, default_value = "mc-src")]
+        output_dir: PathBuf,
+    },
+
+    /// Extract assets/minecraft from jar to a local directory
+    Export {
+        #[arg(long, default_value = "1.21.8")]
+        version: String,
+
+        #[arg(long, default_value = ".minecraft")]
+        minecraft_dir: PathBuf,
+
+        /// Output directory (files written to <output>/minecraft/...)
+        #[arg(long, default_value = concat!(env!("CARGO_MANIFEST_DIR"), "/../client/assets"))]
+        output: PathBuf,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +171,7 @@ async fn fetch_version_meta(version: &str) -> anyhow::Result<VersionMeta> {
 }
 
 // ---------------------------------------------------------------------------
-// Core logic
+// Decompile
 // ---------------------------------------------------------------------------
 
 async fn ensure_cfr() -> anyhow::Result<PathBuf> {
@@ -177,7 +197,7 @@ async fn ensure_jar(version: &str, minecraft_dir: &Path) -> anyhow::Result<PathB
     }
 
     tracing::info!("Jar not found. Running mc-launcher-cli to download...");
-    let status = Command::new("cargo")
+    let status = StdCommand::new("cargo")
         .args([
             "run",
             "--package",
@@ -218,7 +238,7 @@ async fn decompile(version: &str, jar_path: &Path, output_dir: &Path) -> anyhow:
     let cfr = ensure_cfr().await?;
 
     let has_mappings = meta.downloads.client_mappings.is_some();
-    let mut cmd = Command::new("java");
+    let mut cmd = StdCommand::new("java");
     cmd.arg("-jar")
         .arg(&cfr)
         .arg(jar_path)
@@ -257,6 +277,59 @@ async fn decompile(version: &str, jar_path: &Path, output_dir: &Path) -> anyhow:
 }
 
 // ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+
+fn export(version: &str, minecraft_dir: &Path, output: &Path) -> anyhow::Result<()> {
+    let jar = minecraft_dir
+        .join("versions")
+        .join(version)
+        .join(format!("{version}.jar"));
+    if !jar.exists() {
+        anyhow::bail!("Jar not found: {} (run 'mc-src-cli decompile' first)", jar.display());
+    }
+
+    let file = std::fs::File::open(&jar)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+
+    let prefix = "assets/";
+    let mut count = 0;
+
+    for i in 0..archive.len() {
+        let mut entry = match archive.by_index(i) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        let Some(zip_path) = entry.enclosed_name().map(|p| p.to_string_lossy().to_string()) else {
+            continue;
+        };
+
+        if !zip_path.starts_with(prefix) {
+            continue;
+        }
+
+        let relative = &zip_path[prefix.len()..]; // "minecraft/textures/block/stone.png"
+        let dest = output.join(&relative);
+
+        if entry.is_dir() {
+            std::fs::create_dir_all(&dest).ok();
+            continue;
+        }
+
+        std::fs::create_dir_all(dest.parent().unwrap())?;
+
+        let mut data = Vec::with_capacity(entry.size() as usize);
+        std::io::Read::read_to_end(&mut entry, &mut data)?;
+        std::fs::write(&dest, &data)?;
+        count += 1;
+    }
+
+    tracing::info!("Exported {count} files to {}", output.display());
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -271,38 +344,48 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    let versions = if cli.versions.is_empty() {
-        let config_path = PathBuf::from(CRATE_DIR).join("config.json");
-        let cfg: Config = if config_path.exists() {
-            let data = tokio::fs::read_to_string(&config_path).await?;
-            serde_json::from_str(&data)?
-        } else {
-            Config::default()
-        };
-        cfg.versions
-    } else {
-        cli.versions
-    };
+    match cli.command {
+        Sub::Decompile { versions, minecraft_dir, output_dir } => {
+            let versions = if versions.is_empty() {
+                let config_path = PathBuf::from(CRATE_DIR).join("config.json");
+                let cfg: Config = if config_path.exists() {
+                    let data = tokio::fs::read_to_string(&config_path).await?;
+                    serde_json::from_str(&data)?
+                } else {
+                    Config::default()
+                };
+                cfg.versions
+            } else {
+                versions
+            };
 
-    let manifest = fetch_manifest().await?;
-    tracing::info!("Latest release: {}", manifest.latest.release);
+            let manifest = fetch_manifest().await?;
+            tracing::info!("Latest release: {}", manifest.latest.release);
 
-    for mut v in versions {
-        if v == "latest" {
-            v = manifest.latest.release.clone();
+            for mut v in versions {
+                if v == "latest" {
+                    v = manifest.latest.release.clone();
+                }
+
+                tracing::info!("{:=<60}", "");
+                tracing::info!("  Version: {}", v);
+                tracing::info!("{:=<60}", "");
+
+                let jar = ensure_jar(&v, &minecraft_dir).await?;
+
+                if let Err(e) = decompile(&v, &jar, &output_dir).await {
+                    tracing::error!("  Failed: {e}");
+                }
+            }
+
+            tracing::info!("Done. Output: {}", output_dir.display());
         }
-
-        tracing::info!("{:=<60}", "");
-        tracing::info!("  Version: {}", v);
-        tracing::info!("{:=<60}", "");
-
-        let jar = ensure_jar(&v, &cli.minecraft_dir).await?;
-
-        if let Err(e) = decompile(&v, &jar, &cli.output_dir).await {
-            tracing::error!("  Failed: {e}");
+        Sub::Export { version, minecraft_dir, output } => {
+            if let Err(e) = export(&version, &minecraft_dir, &output) {
+                tracing::error!("Export failed: {e}");
+            }
         }
     }
 
-    tracing::info!("Done. Output: {}", cli.output_dir.display());
     Ok(())
 }

@@ -1,5 +1,6 @@
 mod chunk_mesh;
 mod net_plugin;
+mod render;
 mod server;
 
 use std::fs::OpenOptions;
@@ -48,6 +49,7 @@ fn main() -> anyhow::Result<()> {
         net_plugin::NetworkPlugin,
         ferrite_gui::player::PlayerPlugin,
         ferrite_gui::UIPlugin,
+        render::RenderPlugin,
     ));
 
     if auto_connect {
