@@ -73,14 +73,9 @@ impl Plugin for UIPlugin {
 }
 
 fn load_ui_font(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let preferred = "assets/fonts/JetBrainsMonoNerdFont.ttf";
-    let asset_path = if std::path::Path::new(preferred).exists() {
-        "fonts/JetBrainsMonoNerdFont.ttf"
-    } else {
-        // fallback bundled font
-        "fonts/NotoSansSC.ttf"
-    };
-    commands.insert_resource(UiFont(asset_server.load(asset_path)));
+    // Load the crate-local font only. Ensure the font file is placed under
+    // `crates/client/assets/fonts/JetBrainsMonoNerdFont.ttf` so Bevy finds it.
+    commands.insert_resource(UiFont(asset_server.load("fonts/JetBrainsMonoNerdFont.ttf")));
 }
 
 // ── Camera & Ground (Startup) ──
@@ -149,22 +144,24 @@ fn ui_system(
 
     if is_playing {
         for entity in menu_query.iter() {
-    ui_font: Res<UiFont>,
+            commands.entity(entity).despawn_recursive();
+        }
+        for entity in world_select_query.iter() {
             commands.entity(entity).despawn_recursive();
         }
         if hud_query.is_empty() {
-            spawn_hud(&mut commands, &info, &fonts.0);
+            hud::spawn_hud(&mut commands, &info, &fonts.0);
         }
         if paused.0 && pause_query.is_empty() {
-            spawn_pause_menu(&mut commands, &fonts.0);
+            pause::spawn_pause_menu(&mut commands, &fonts.0);
         }
         if !paused.0 {
             for entity in pause_query.iter() {
                 commands.entity(entity).despawn_recursive();
-            spawn_hud(&mut commands, &info, &ui_font.0);
+            }
         }
     } else if net.connecting {
-            spawn_pause_menu(&mut commands, &ui_font.0);
+        for entity in menu_query.iter() {
             commands.entity(entity).despawn_recursive();
         }
         for entity in world_select_query.iter() {
@@ -201,14 +198,6 @@ fn ui_system(
     }
 }
 
-fn spawn_pause_menu(commands: &mut Commands, font: &Handle<Font>) {
-                    menu::spawn_menu(&mut commands, &ui, &ui_font.0);
-}
-
-fn spawn_hud(commands: &mut Commands, info: &PlayerInfoRes, font: &Handle<Font>) {
-    hud::spawn_hud(commands, info, font);
-}
-
 // ── Button system ──
 
 fn button_system(
@@ -229,7 +218,9 @@ fn button_system(
                 .find_map(|&child| text_query.get(child).ok())
                 .and_then(|t| t.sections.first().map(|s| &s.value));
 
-            let Some(label) = label else { continue; };
+            let Some(label) = label else {
+                continue;
+            };
             let label: &str = label;
             match label {
                 "Single Player" => {
@@ -238,7 +229,11 @@ fn button_system(
                     screen.0 = UiScreen::WorldSelect;
                 }
                 "Demo World" => {
-                    pending.0.push(("127.0.0.1:25565".to_string(), true, Some("world".to_string())));
+                    pending.0.push((
+                        "127.0.0.1:25565".to_string(),
+                        true,
+                        Some("world".to_string()),
+                    ));
                 }
                 "Quit" => std::process::exit(0),
                 "Back to Game" => {
@@ -259,13 +254,21 @@ fn button_system(
                     let dir = WorldManager::default_worlds_dir().join(&name);
                     std::fs::create_dir_all(&dir).ok();
                     selected_world.0 = Some(dir.to_string_lossy().to_string());
-                    pending.0.push(("127.0.0.1:25565".to_string(), true, Some(format!("saves/{name}"))));
+                    pending.0.push((
+                        "127.0.0.1:25565".to_string(),
+                        true,
+                        Some(format!("saves/{name}")),
+                    ));
                 }
                 v => {
                     let world = worlds.worlds.iter().find(|w| w.name == *v);
                     if let Some(entry) = world {
                         selected_world.0 = Some(entry.path.to_string_lossy().to_string());
-                        pending.0.push(("127.0.0.1:25565".to_string(), true, Some(format!("saves/{}", entry.name))));
+                        pending.0.push((
+                            "127.0.0.1:25565".to_string(),
+                            true,
+                            Some(format!("saves/{}", entry.name)),
+                        ));
                     }
                 }
             }
