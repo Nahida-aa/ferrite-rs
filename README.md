@@ -62,3 +62,5 @@ bun run start
 ## 依赖服务端
 
 客户端需要一个兼容 Minecraft 协议的服务端。当前开发常用 [FerrumC](https://github.com/sweattypalms/ferrumc)，也可以接入其他兼容实现。
+
+1.21.8

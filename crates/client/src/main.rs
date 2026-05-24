@@ -4,6 +4,7 @@ mod net_plugin;
 mod player;
 mod server;
 mod ui;
+mod worlds;
 
 use std::fs::OpenOptions;
 
@@ -11,10 +12,12 @@ use bevy::prelude::*;
 use tracing_subscriber::EnvFilter;
 
 fn main() -> anyhow::Result<()> {
+    std::fs::create_dir_all("logs").ok();
+    let log_path = format!("logs/ferrite-{}.log", chrono_timestamp());
     let log_file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open("ferrite.log")?;
+        .open(&log_path)?;
 
     let mut filter = EnvFilter::builder()
         .with_env_var("FERRITE_LOG")
@@ -38,9 +41,13 @@ fn main() -> anyhow::Result<()> {
         app.world_mut()
             .resource_mut::<game::PendingConnect>()
             .0
-            .push(("localhost:25565".to_string(), true));
+            .push(("localhost:25565".to_string(), true, Some("world".to_string())));
     }
 
     app.run();
     Ok(())
+}
+
+fn chrono_timestamp() -> String {
+    chrono::Local::now().format("%Y%m%d-%H%M%S").to_string()
 }

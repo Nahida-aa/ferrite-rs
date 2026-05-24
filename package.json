@@ -2,7 +2,7 @@
   "name": "ferrite-rs",
   "version": "0.1.0",
   "scripts": {
-    "dev": "cargo run --bin ferrite-client",
+    "dev": "cargo run --package ferrite-client",
     "start": "cargo run --release --bin ferrite-client",
     "cli": "cargo run --bin ferrite-cli",
     "build": "cargo build",

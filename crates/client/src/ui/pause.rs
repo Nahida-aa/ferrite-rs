@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use super::PauseMenuUI;
 
-pub(super) fn spawn_pause_menu(commands: &mut Commands) {
+pub(super) fn spawn_pause_menu(commands: &mut Commands, font: &Handle<Font>) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -21,9 +21,9 @@ pub(super) fn spawn_pause_menu(commands: &mut Commands) {
             parent.spawn(TextBundle::from_section(
                 "Paused",
                 TextStyle {
+                    font: font.clone(),
                     font_size: 48.0,
                     color: Color::WHITE,
-                    ..default()
                 },
             ));
             parent.spawn(NodeBundle {
@@ -33,7 +33,7 @@ pub(super) fn spawn_pause_menu(commands: &mut Commands) {
                 },
                 ..default()
             });
-            btn(parent, "Back to Game");
+            btn(parent, "Back to Game", font);
             parent.spawn(NodeBundle {
                 style: Style {
                     height: Val::Px(10.0),
@@ -41,7 +41,7 @@ pub(super) fn spawn_pause_menu(commands: &mut Commands) {
                 },
                 ..default()
             });
-            btn(parent, "Disconnect");
+            btn(parent, "Disconnect", font);
             parent.spawn(NodeBundle {
                 style: Style {
                     height: Val::Px(10.0),
@@ -49,11 +49,11 @@ pub(super) fn spawn_pause_menu(commands: &mut Commands) {
                 },
                 ..default()
             });
-            btn(parent, "Quit");
+            btn(parent, "Quit", font);
         });
 }
 
-fn btn(parent: &mut ChildBuilder, label: &str) {
+fn btn(parent: &mut ChildBuilder, label: &str, font: &Handle<Font>) {
     parent
         .spawn(ButtonBundle {
             style: Style {
@@ -70,9 +70,9 @@ fn btn(parent: &mut ChildBuilder, label: &str) {
             parent.spawn(TextBundle::from_section(
                 label,
                 TextStyle {
+                    font: font.clone(),
                     font_size: 20.0,
                     color: Color::WHITE,
-                    ..default()
                 },
             ));
         });

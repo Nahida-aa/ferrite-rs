@@ -23,7 +23,7 @@ pub struct EcsRuntime(pub Runtime);
 pub struct CmdTx(pub Option<mpsc::Sender<NetworkCommand>>);
 
 #[derive(Resource, Default)]
-pub struct PendingConnect(pub Vec<(String, bool)>);
+pub struct PendingConnect(pub Vec<(String, bool, Option<String>)>);
 
 #[derive(Resource)]
 pub struct CursorGrabState {
@@ -207,8 +207,14 @@ fn handle_connections(world: &mut World) {
     }
     let connects = std::mem::take(&mut pending.0);
     let runtime_handle = world.resource::<EcsRuntime>().0.handle().clone();
-    for (address, start_server) in connects {
-        connect_to_server(world, &runtime_handle, &address, start_server);
+    for (address, start_server, db_path) in connects {
+        connect_to_server(
+            world,
+            &runtime_handle,
+            &address,
+            start_server,
+            db_path.as_deref().unwrap_or("world"),
+        );
     }
 }
 
@@ -217,6 +223,7 @@ fn connect_to_server(
     runtime_handle: &tokio::runtime::Handle,
     address: &str,
     start_server: bool,
+    db_path: &str,
 ) {
     {
         let net = world.resource::<NetworkRes>();
@@ -230,7 +237,7 @@ fn connect_to_server(
     }
 
     let server = if start_server {
-        match ServerHandle::spawn() {
+        match ServerHandle::spawn(db_path) {
             Ok(s) => {
                 tracing::info!("Local server started");
                 Some(s)
@@ -289,7 +296,7 @@ fn cursor_grab_system(
         window.cursor.visible = true;
         cursor.was_grabbed = false;
     }
-    if mouse.just_pressed(MouseButton::Left) && !cursor.want_grabbed && !paused.0 {
+    if mouse.just_pressed(MouseButton::Left) && !cursor.want_grabbed && !paused.0 && net.connected {
         cursor.want_grabbed = true;
     }
 }

@@ -4,7 +4,7 @@ use crate::player::{PlayerInfoRes, PlayerRes};
 
 use super::{CoordText, HUDUI};
 
-pub(super) fn spawn_hud(commands: &mut Commands, info: &PlayerInfoRes) {
+pub(super) fn spawn_hud(commands: &mut Commands, info: &PlayerInfoRes, font: &Handle<Font>) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -23,26 +23,26 @@ pub(super) fn spawn_hud(commands: &mut Commands, info: &PlayerInfoRes) {
             parent.spawn(TextBundle::from_section(
                 "Ferrite",
                 TextStyle {
+                    font: font.clone(),
                     font_size: 18.0,
                     color: Color::WHITE,
-                    ..default()
                 },
             ));
             parent.spawn(TextBundle::from_section(
                 "  |  ",
                 TextStyle {
+                    font: font.clone(),
                     font_size: 18.0,
                     color: Color::srgb(0.5, 0.5, 0.5),
-                    ..default()
                 },
             ));
             parent
                 .spawn(TextBundle::from_section(
                     "XYZ: 0.0 / 0.0 / 0.0",
                     TextStyle {
+                        font: font.clone(),
                         font_size: 18.0,
                         color: Color::WHITE,
-                        ..default()
                     },
                 ))
                 .insert(CoordText);
@@ -60,9 +60,9 @@ pub(super) fn spawn_hud(commands: &mut Commands, info: &PlayerInfoRes) {
                         }
                     ),
                     TextStyle {
+                        font: font.clone(),
                         font_size: 14.0,
                         color: Color::srgb(0.7, 0.7, 0.7),
-                        ..default()
                     },
                 ))
                 .insert(super::InfoText);
@@ -86,9 +86,9 @@ pub(super) fn spawn_hud(commands: &mut Commands, info: &PlayerInfoRes) {
             parent.spawn(TextBundle::from_section(
                 "Connected",
                 TextStyle {
+                    font: font.clone(),
                     font_size: 18.0,
                     color: Color::srgb(0.0, 1.0, 0.0),
-                    ..default()
                 },
             ));
         });

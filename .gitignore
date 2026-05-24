@@ -7,9 +7,15 @@
 *~
 .env
 
+*.mdb
 /world
 /world/*
+/worlds/*
+/saves/*
+
 /logs/*
 
 /logs
 *.log
+
+/tmp
