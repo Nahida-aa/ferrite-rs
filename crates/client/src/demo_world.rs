@@ -1,5 +1,5 @@
 use core::block::BlockState;
-use core::chunk::{Chunk, ChunkSection, SECTION_HEIGHT, CHUNK_WIDTH};
+use core::chunk::{CHUNK_WIDTH, Chunk, ChunkSection, SECTION_HEIGHT};
 
 const W: usize = CHUNK_WIDTH;
 
@@ -23,7 +23,15 @@ fn fill_rect(s: &mut [BlockState], x0: usize, x1: usize, z0: usize, z1: usize, y
 }
 
 /// Fill a 2D rectangle at a given Y layer within a section.
-fn fill_rect_y(section: &mut ChunkSection, y: usize, x0: usize, z0: usize, x1: usize, z1: usize, id: u16) {
+fn fill_rect_y(
+    section: &mut ChunkSection,
+    y: usize,
+    x0: usize,
+    z0: usize,
+    x1: usize,
+    z1: usize,
+    id: u16,
+) {
     assert!(y < SECTION_HEIGHT);
     fill_rect(&mut section.blocks, x0, x1, z0, z1, y, id);
 }
@@ -147,7 +155,7 @@ pub fn generate_demo_chunk(cx: i32, cz: i32) -> Option<Chunk> {
             (14, 14, 10165), // white terracotta
         ];
         for (x, z, id) in color_positions.iter() {
-            fill_rect_y(&mut s, 7, *x, *z, *x+1, *z+1, *id);
+            fill_rect_y(&mut s, 7, *x, *z, *x + 1, *z + 1, *id);
         }
     }
 

@@ -403,9 +403,7 @@ async fn run_play_loop(
                             if data.len() >= data_len {
                                 let mut payload = data.split_to(data_len);
                                 if let Some(chunk) =
-                                    core::chunk::Chunk::decode_from_play_payload(
-                                        &mut payload,
-                                    )
+                                    core::chunk::Chunk::decode_from_play_payload(&mut payload)
                                 {
                                     let _ =
                                         events.send(NetworkEvent::ChunkData { x, z, chunk }).await;
@@ -567,8 +565,8 @@ async fn read_raw_frame(reader: &mut OwnedReadHalf, buf: &mut BytesMut) -> Resul
 }
 
 fn parse_encryption_request(data: &mut BytesMut) -> Result<(String, Vec<u8>, Vec<u8>)> {
-    let server_id = core::protocol::codec::read_string(data, 32767)
-        .ok_or(anyhow::anyhow!("bad server id"))?;
+    let server_id =
+        core::protocol::codec::read_string(data, 32767).ok_or(anyhow::anyhow!("bad server id"))?;
     let pubkey_len = read_var_int(data).ok_or(anyhow::anyhow!("bad pubkey len"))? as usize;
     let pubkey = data.split_to(pubkey_len).to_vec();
     let token_len = read_var_int(data).ok_or(anyhow::anyhow!("bad token len"))? as usize;

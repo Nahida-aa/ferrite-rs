@@ -2,14 +2,12 @@ use anyhow::{Context, Result};
 use bytes::BytesMut;
 use core::protocol::codec::{read_var_int, write_var_int};
 use core::protocol::packets::handshake::Handshake;
-use core::protocol::packets::status::{
-    PingRequest, PongResponse, StatusRequest, StatusResponse,
-};
+use core::protocol::packets::status::{PingRequest, PongResponse, StatusRequest, StatusResponse};
 use serde_json::Value;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 
 pub struct ServerStatusReport {
     pub address: String,
