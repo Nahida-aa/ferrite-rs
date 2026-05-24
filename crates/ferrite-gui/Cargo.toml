@@ -16,6 +16,7 @@ bevy = { version = "0.14", default-features = false, features = [
     "default_font",
     "x11",
 ] }
+bevy_diagnostic = "0.14"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 anyhow = "1"

@@ -50,6 +50,7 @@ fn main() -> anyhow::Result<()> {
         ferrite_gui::player::PlayerPlugin,
         ferrite_gui::UIPlugin,
         render::RenderPlugin,
+        bevy_diagnostic::FrameTimeDiagnosticsPlugin,
     ));
 
     if auto_connect {

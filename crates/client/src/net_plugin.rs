@@ -5,9 +5,9 @@ use tokio::runtime::Runtime;
 use ferrite_net::{Network, NetworkEvent as NetMsg};
 use ferrite_gui::player::{PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerRes, CmdTx};
 use ferrite_gui::{
-    HUDUI, MainMenuUI, PauseMenuOpen, PauseMenuUI, PlayWorldButton, SelectedServer,
-    ServerListUI, UiFont, UiRes, UiScreen, UiScreenState, WorldEntryButton, WorldSelectUI,
-    LanDiscoveryState,
+    ChunkCount, DebugOverlayUI, HUDUI, MainMenuUI, PauseMenuOpen, PauseMenuUI, PlayWorldButton,
+    SelectedServer, ServerListUI, UiFont, UiRes, UiScreen, UiScreenState, WorldEntryButton,
+    WorldSelectUI, LanDiscoveryState,
 };
 use ferrite_gui::worlds::{SelectedWorld, WorldManager};
 use ferrite_gui::ui::server_list::{JoinServerButton, LanServerButton};
@@ -15,6 +15,13 @@ use ferrite_gui::ui::server_list::{JoinServerButton, LanServerButton};
 use crate::chunk_mesh::chunk_to_mesh;
 use crate::render::atlas::TextureAtlasRes;
 use crate::render::block_models::BlockRegistry;
+
+/// Wrapper to keep system parameter count under 16 (Bevy/Rust limit).
+#[derive(Resource)]
+pub struct ChunkRenderRes {
+    pub registry: BlockRegistry,
+    pub atlas: TextureAtlasRes,
+}
 use crate::server::ServerHandle;
 
 #[derive(Resource)]
@@ -102,27 +109,26 @@ impl Plugin for NetworkPlugin {
         .init_resource::<PendingConnect>()
         .init_resource::<PendingServerSpawn>()
         .insert_resource(ChunkEntities::default())
+        .insert_resource(ChunkCount::default())
+        .insert_resource(ferrite_gui::DebugOverlayVisible(false))
         .add_event::<NetworkEvent>()
-        .add_systems(
-            Update,
-            (
-                button_system,
-                ferrite_gui::ui::menu::update_world_select_highlight,
-                ferrite_gui::ui::menu::update_play_button_visual,
-                handle_pending_connect,
-                poll_server_startup,
-                drain_network_events_system,
-                handle_network_events_system,
-                ui_system,
-                lan_discovery_system,
-                ferrite_gui::ui::server_list::update_server_list,
-                ferrite_gui::ui::server_list::update_server_list_highlight,
-                ferrite_gui::ui::server_list::update_join_button_visual,
-                ferrite_gui::ui::hud::hud_update_system,
-                cursor_grab_system,
-            )
-                .chain(),
-        );
+        .add_systems(Update, button_system)
+        .add_systems(Update, ferrite_gui::ui::menu::update_world_select_highlight)
+        .add_systems(Update, ferrite_gui::ui::menu::update_play_button_visual)
+        .add_systems(Update, handle_pending_connect)
+        .add_systems(Update, poll_server_startup)
+        .add_systems(Update, drain_network_events_system)
+        .add_systems(Update, handle_network_events_system)
+        .add_systems(Update, ui_system)
+        .add_systems(Update, lan_discovery_system)
+        .add_systems(Update, ferrite_gui::ui::server_list::update_server_list)
+        .add_systems(Update, ferrite_gui::ui::server_list::update_server_list_highlight)
+        .add_systems(Update, ferrite_gui::ui::server_list::update_join_button_visual)
+        .add_systems(Update, ferrite_gui::ui::hud::hud_update_system)
+        .add_systems(Update, ferrite_gui::ui::debug_overlay::debug_overlay_toggle_system)
+        .add_systems(Update, ferrite_gui::ui::debug_overlay::debug_overlay_update_system)
+        .add_systems(Update, ferrite_gui::ui::debug_overlay::debug_overlay_visibility_system)
+        .add_systems(Update, cursor_grab_system);
     }
 }
 
@@ -278,12 +284,12 @@ fn handle_network_events_system(
     mut cursor: ResMut<CursorGrabState>,
     mut net: ResMut<NetworkRes>,
     mut chunk_entities: ResMut<ChunkEntities>,
+    mut chunk_count: ResMut<ChunkCount>,
     mut paused: ResMut<PauseMenuOpen>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    registry: Res<BlockRegistry>,
-    atlas: Res<TextureAtlasRes>,
+    render: Res<ChunkRenderRes>,
 ) {
     for event in events.read() {
         match event {
@@ -325,6 +331,7 @@ fn handle_network_events_system(
                 for (_, entity) in chunk_entities.entities.drain() {
                     commands.entity(entity).despawn();
                 }
+                chunk_count.0 = 0;
 
                 net.inner = None;
                 net.connected = false;
@@ -350,10 +357,10 @@ fn handle_network_events_system(
             }
             NetworkEvent::ChunkData { x, z, chunk } => {
                 tracing::info!("Building merged mesh for chunk at ({},{})", x, z);
-                let mesh = chunk_to_mesh(chunk, *x, *z, &*registry, &*atlas);
+                let mesh = chunk_to_mesh(chunk, *x, *z, &render.registry, &render.atlas);
                 let mesh_handle = meshes.add(mesh);
                 let material_handle =
-                    get_chunk_material(&mut materials, &mut chunk_entities, &atlas);
+                    get_chunk_material(&mut materials, &mut chunk_entities, &render.atlas);
                 let entity = commands
                     .spawn(PbrBundle {
                         mesh: mesh_handle,
@@ -366,6 +373,8 @@ fn handle_network_events_system(
                 // Dedup: despawn old mesh for the same chunk
                 if let Some(old) = chunk_entities.entities.insert((*x, *z), entity) {
                     commands.entity(old).despawn();
+                } else {
+                    chunk_count.0 = chunk_entities.entities.len();
                 }
             }
         }
@@ -585,6 +594,7 @@ fn ui_system(
     server_list_query: Query<Entity, With<ServerListUI>>,
     hud_query: Query<Entity, With<HUDUI>>,
     pause_query: Query<Entity, With<PauseMenuUI>>,
+    debug_overlay_query: Query<Entity, With<DebugOverlayUI>>,
 ) {
     let is_playing = net.connected;
 
@@ -600,6 +610,9 @@ fn ui_system(
         }
         if hud_query.is_empty() {
             ferrite_gui::ui::hud::spawn_hud(&mut commands, &info, &fonts.0);
+        }
+        if debug_overlay_query.is_empty() {
+            ferrite_gui::ui::debug_overlay::spawn_debug_overlay(&mut commands, &fonts.0);
         }
         if paused.0 && pause_query.is_empty() {
             ferrite_gui::ui::pause::spawn_pause_menu(&mut commands, &fonts.0);
@@ -622,11 +635,17 @@ fn ui_system(
         for entity in hud_query.iter() {
             commands.entity(entity).despawn_recursive();
         }
+        for entity in debug_overlay_query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
     } else {
         for entity in pause_query.iter() {
             commands.entity(entity).despawn_recursive();
         }
         for entity in hud_query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+        for entity in debug_overlay_query.iter() {
             commands.entity(entity).despawn_recursive();
         }
         match screen.0 {

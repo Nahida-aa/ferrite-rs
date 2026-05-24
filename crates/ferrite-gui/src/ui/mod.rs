@@ -4,6 +4,7 @@ use crate::{LanDiscoveryState, PauseMenuOpen, SelectedServer, UiFont, UiRes, UiS
 use crate::lan_discovery::LanState;
 use crate::worlds::{SelectedWorld, WorldManager};
 
+pub mod debug_overlay;
 pub mod hud;
 pub mod menu;
 pub mod pause;

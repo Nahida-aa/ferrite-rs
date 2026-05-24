@@ -5,6 +5,7 @@ use bevy::prelude::*;
 
 use self::atlas::build_texture_atlas;
 use self::block_models::BlockRegistry;
+use crate::net_plugin::ChunkRenderRes;
 
 pub struct RenderPlugin;
 
@@ -17,7 +18,6 @@ impl Plugin for RenderPlugin {
             build_texture_atlas(&registry, &mut images)
         };
 
-        app.insert_resource(registry);
-        app.insert_resource(atlas);
+        app.insert_resource(ChunkRenderRes { registry, atlas });
     }
 }

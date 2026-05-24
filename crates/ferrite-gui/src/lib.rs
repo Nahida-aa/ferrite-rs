@@ -8,6 +8,7 @@ pub mod worlds;
 pub use ferrite_net::lan::DiscoveredServer;
 pub use ui::UIPlugin;
 
+
 // ── UI Resources ──
 
 #[derive(Resource)]
@@ -110,6 +111,17 @@ pub struct PlayerBlock;
 
 #[derive(Resource)]
 pub struct PlayerBlockEntity(pub Option<Entity>);
+
+// ── Debug Overlay ──
+
+#[derive(Resource, Default)]
+pub struct ChunkCount(pub usize);
+
+#[derive(Component)]
+pub struct DebugOverlayUI;
+
+#[derive(Resource)]
+pub struct DebugOverlayVisible(pub bool);
 
 // ── LanDiscoveryState ──
 

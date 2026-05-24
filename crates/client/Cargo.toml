@@ -23,5 +23,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 rand = "0.8"
 chrono = "0.4"
+bevy_diagnostic = "0.14"
 image = "0.25"
 zip = "2"

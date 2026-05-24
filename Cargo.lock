@@ -2032,6 +2032,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bevy",
+ "bevy_diagnostic",
  "chrono",
  "ferrite-core",
  "ferrite-gui",
@@ -2064,6 +2065,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bevy",
+ "bevy_diagnostic",
  "chrono",
  "ferrite-core",
  "ferrite-net",
