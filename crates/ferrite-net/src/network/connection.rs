@@ -380,29 +380,44 @@ async fn run_play_loop(
                     tracing::info!("EntityStatus received ({} bytes)", data.len());
                 }
                 0x27 => {
-                    // Play -> Chunk Data
-                    if data.len() >= 9 {
+                    if data.len() >= 8 {
                         let x = data.get_i32();
                         let z = data.get_i32();
-                        let _full = data.get_u8() != 0;
-                        let mask = read_var_int(&mut data).unwrap_or(0) as u32;
-                        let data_length = read_var_int(&mut data).unwrap_or(0) as usize;
-                        if data.len() >= data_length {
-                            let mut payload = data.split_to(data_length);
-                            if let Some(chunk) =
-                                ferrite_core::chunk::Chunk::decode_from_play_payload(
-                                    &mut payload,
-                                    mask,
-                                )
-                            {
-                                let _ = events.send(NetworkEvent::ChunkData { x, z, chunk }).await;
-                                tracing::info!("ChunkData decoded for chunk ({},{})", x, z);
-                            } else {
-                                tracing::warn!(
-                                    "ChunkData decode failed for chunk ({},{}), falling back",
-                                    x,
-                                    z
-                                );
+
+                        // Skip heightmaps: LengthPrefixedVec<NetworkHeightmap>
+                        if let Some(heightmap_count) = read_var_int(&mut data) {
+                            for _ in 0..heightmap_count {
+                                let _ = read_var_int(&mut data); // heightmap type_id
+                                if let Some(long_count) = read_var_int(&mut data) {
+                                    let byte_count = long_count as usize * 8;
+                                    if data.len() >= byte_count {
+                                        data.advance(byte_count);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Read section data ByteArray: VarInt length + bytes
+                        if let Some(data_len) = read_var_int(&mut data) {
+                            let data_len = data_len as usize;
+                            if data.len() >= data_len {
+                                let mut payload = data.split_to(data_len);
+                                if let Some(chunk) =
+                                    ferrite_core::chunk::Chunk::decode_from_play_payload(
+                                        &mut payload,
+                                    )
+                                {
+                                    let _ = events
+                                        .send(NetworkEvent::ChunkData { x, z, chunk })
+                                        .await;
+                                    tracing::info!("ChunkData decoded for chunk ({},{})", x, z);
+                                } else {
+                                    tracing::warn!(
+                                        "ChunkData decode failed for chunk ({},{})",
+                                        x,
+                                        z
+                                    );
+                                }
                             }
                         }
                     }

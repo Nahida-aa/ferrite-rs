@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use reqwest::Client;
 use sha1::{Digest, Sha1};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
@@ -63,6 +63,55 @@ impl Cache {
         }
 
         Ok(path)
+    }
+
+    /// Download a URL directly to a specific file path.
+    /// Creates parent directories as needed. Verifies SHA1 if provided.
+    pub async fn download_to(
+        &self,
+        url: &str,
+        dest: &Path,
+        sha1: Option<&str>,
+    ) -> Result<()> {
+        if dest.exists() {
+            if let Some(expected) = sha1 {
+                if self.verify_sha1(&dest.to_path_buf(), expected).await {
+                    return Ok(());
+                }
+                tracing::debug!("SHA1 mismatch, re-downloading {}", dest.display());
+            } else {
+                return Ok(());
+            }
+        }
+
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+
+        let temp_path = dest.with_extension("tmp");
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .with_context(|| format!("download {}", dest.display()))?;
+
+        let total = response.content_length().unwrap_or(0);
+        let mut file = fs::File::create(&temp_path).await?;
+        let display_name = url.split('/').last().unwrap_or(url);
+        download_stream(response, &mut file, total, display_name).await?;
+
+        file.flush().await?;
+        fs::rename(&temp_path, dest).await?;
+
+        if let Some(expected) = sha1 {
+            if !self.verify_sha1(&dest.to_path_buf(), expected).await {
+                fs::remove_file(dest).await?;
+                anyhow::bail!("SHA1 mismatch for {}", url);
+            }
+        }
+
+        Ok(())
     }
 
     pub async fn get_jar(

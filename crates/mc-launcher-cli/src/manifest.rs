@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Deserialize, Clone)]
 pub struct VersionManifest {
@@ -225,6 +226,36 @@ fn rule_matches_single(rule: &Rule) -> bool {
         Some(features) => features.iter().all(|(_, v)| *v),
     };
     os_ok && features_ok
+}
+
+/// Convert Maven coordinate `group:artifact:version` to relative path.
+/// e.g. `"org.lwjgl:lwjgl:3.3.4"` → `"org/lwjgl/lwjgl/3.3.4/lwjgl-3.3.4.jar"`
+pub fn maven_path(name: &str) -> PathBuf {
+    let parts: Vec<&str> = name.splitn(3, ':').collect();
+    if parts.len() != 3 {
+        return PathBuf::from(name.replace(':', ".") + ".jar");
+    }
+    let group = parts[0].replace('.', "/");
+    let artifact = parts[1];
+    let version = parts[2];
+    PathBuf::from_iter([&group, artifact, version, &format!("{}-{}.jar", artifact, version)])
+}
+
+/// Same as `maven_path` but for classifier jars (e.g. natives).
+pub fn maven_classifier_path(name: &str, classifier: &str) -> PathBuf {
+    let parts: Vec<&str> = name.splitn(3, ':').collect();
+    if parts.len() != 3 {
+        return PathBuf::from(name.replace(':', ".") + "-" + classifier + ".jar");
+    }
+    let group = parts[0].replace('.', "/");
+    let artifact = parts[1];
+    let version = parts[2];
+    PathBuf::from_iter([
+        &group,
+        artifact,
+        version,
+        &format!("{}-{}-{}.jar", artifact, version, classifier),
+    ])
 }
 
 pub fn get_natives_key() -> &'static str {

@@ -331,7 +331,7 @@ fn handle_network_events_system(
                 let mesh = chunk_to_mesh(chunk, *x, *z);
                 let handle = meshes.add(mesh);
                 let material = materials.add(StandardMaterial {
-                    base_color: Color::srgb(0.6, 0.6, 0.6),
+                    base_color: Color::srgb(1.0, 1.0, 1.0),
                     ..default()
                 });
                 let entity = commands.spawn(PbrBundle {

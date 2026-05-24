@@ -21,195 +21,265 @@ impl ChunkSection {
     }
 }
 
+fn read_paletted_container_u64s(
+    buf: &mut bytes::BytesMut,
+    bits_per_entry: u8,
+    entry_count: usize,
+) -> Option<Vec<u64>> {
+    if bits_per_entry == 0 {
+        return Some(Vec::new());
+    }
+    let long_count = (entry_count * bits_per_entry as usize + 63) / 64;
+    let mut data = Vec::with_capacity(long_count);
+    for _ in 0..long_count {
+        if buf.len() < 8 {
+            return None;
+        }
+        let mut le = [0u8; 8];
+        le.copy_from_slice(&buf.split_to(8));
+        data.push(u64::from_le_bytes(le));
+    }
+    Some(data)
+}
+
+fn unpack_blocks(
+    data: &[u64],
+    bits_per_entry: u8,
+    entry_count: usize,
+    palette: &[u16],
+) -> Vec<BlockState> {
+    let mut blocks = Vec::with_capacity(entry_count);
+    if bits_per_entry == 0 {
+        let raw = palette.first().copied().unwrap_or(0);
+        for _ in 0..entry_count {
+            blocks.push(BlockState::from_raw(raw));
+        }
+        return blocks;
+    }
+    let bits = bits_per_entry as usize;
+    let mask = if bits < 64 {
+        (1u64 << bits) - 1
+    } else {
+        u64::MAX
+    };
+    for entry_idx in 0..entry_count {
+        let bit_index = entry_idx * bits;
+        let start_long = bit_index / 64;
+        let start_offset = bit_index % 64;
+        let value = if start_long >= data.len() {
+            0
+        } else if start_offset + bits <= 64 {
+            (data[start_long] >> start_offset) & mask
+        } else {
+            let low = data[start_long] >> start_offset;
+            let remaining = bits - (64 - start_offset);
+            let high = if start_long + 1 < data.len() {
+                data[start_long + 1] & ((1u64 << remaining) - 1)
+            } else {
+                0
+            };
+            (high << (64 - start_offset)) | low
+        };
+        let raw = if bits_per_entry == 16 {
+            value as u16
+        } else {
+            let idx = value as usize;
+            if idx < palette.len() {
+                palette[idx]
+            } else {
+                0
+            }
+        };
+        blocks.push(BlockState::from_raw(raw));
+    }
+    blocks
+}
+
 impl Chunk {
-    /// Decode a simplified Chunk from a play-payload slice.
-    ///
-    /// This implements a pragmatic, testable subset of the real ChunkData decoding:
-    /// - It expects that block states for present sections are encoded as contiguous big-endian `u16` per block
-    ///   (blocks_per_section * 2 bytes per present section). This is NOT the full Minecraft format,
-    ///   but useful for unit tests and for a simple end-to-end rendering pipeline.
-    pub fn decode_from_play_payload(
-        buf: &mut bytes::BytesMut,
-        primary_bit_mask: u32,
-    ) -> Option<Self> {
+    pub fn decode_from_play_payload(buf: &mut bytes::BytesMut) -> Option<Self> {
         let blocks_per_section = SECTION_HEIGHT * CHUNK_WIDTH * CHUNK_WIDTH;
-        use crate::protocol::codec::{read_var_int, write_var_int};
+        use crate::protocol::codec::read_var_int;
         use bytes::Buf;
 
-        let present_sections = (0..16)
-            .filter(|i| ((primary_bit_mask >> i) & 1) == 1)
-            .count();
+        let mut sections = Vec::new();
 
-        // Strategy 1: simple u16-per-block per present section
-        let expected_bytes = present_sections * blocks_per_section * 2;
-        if buf.len() == expected_bytes {
-            let mut sections = Vec::with_capacity(16);
-            for section_index in 0..16usize {
-                if (primary_bit_mask >> section_index) & 1 == 1 {
-                    let mut sec = ChunkSection::new();
-                    for i in 0..blocks_per_section {
-                        let hi = buf.split_to(1)[0];
-                        let lo = buf.split_to(1)[0];
-                        let raw = u16::from_be_bytes([hi, lo]);
-                        sec.blocks[i] = BlockState::from_raw(raw);
-                    }
-                    sections.push(sec);
-                } else {
-                    sections.push(ChunkSection::new());
-                }
+        while buf.has_remaining() {
+            // need at least 2 bytes for block_count
+            if buf.len() < 2 {
+                break;
             }
-            return Some(Chunk { sections });
-        }
 
-        // Strategy 2: attempt palette + bit-packed long array per section (common modern format)
-        let mut sections = Vec::with_capacity(16);
-        for section_index in 0..16usize {
-            if (primary_bit_mask >> section_index) & 1 == 1 {
-                // read palette length
-                let palette_len = read_var_int(buf)? as usize;
+            let _block_count = buf.get_u16();
 
-                // Basic sanity limits to avoid OOM / capacity overflow from malformed input.
-                // A section cannot reasonably have an enormous palette; cap it.
-                const MAX_PALETTE_LEN: usize = 4096;
-                if palette_len > MAX_PALETTE_LEN {
-                    return None;
+            // ---- Block states ----
+            let block_bits = buf.get_u8();
+            let block_palette = match block_bits {
+                0 => {
+                    let value = read_var_int(buf)? as u16;
+                    vec![value]
                 }
-
-                let mut palette = Vec::with_capacity(palette_len);
-                for _ in 0..palette_len {
-                    let entry = read_var_int(buf)? as u16;
-                    palette.push(entry);
-                }
-
-                // read data array length (number of longs)
-                let long_count = read_var_int(buf)? as usize;
-
-                // determine bits per block (from palette) and compute a sane upper bound
-                let bits_per_block = (palette_len.max(1) as f32).log2().ceil() as usize;
-                let bits_per_block = bits_per_block.max(4);
-
-                // maximum longs needed for one section
-                let max_long_count = (blocks_per_section * bits_per_block + 63) / 64;
-                if long_count > max_long_count {
-                    return None;
-                }
-
-                // ensure buffer has enough bytes for the declared longs
-                if buf.len() < long_count.saturating_mul(8) {
-                    return None;
-                }
-
-                let mut data = Vec::with_capacity(long_count);
-                for _ in 0..long_count {
-                    // read little-endian u64
-                    let mut le = [0u8; 8];
-                    for i in 0..8 {
-                        le[i] = buf.split_to(1)[0];
-                    }
-                    data.push(u64::from_le_bytes(le));
-                }
-
-                // unpack blocks
-                let mut sec = ChunkSection::new();
-                let mut bit_index = 0usize;
-                for block_idx in 0..blocks_per_section {
-                    let start_long = bit_index / 64;
-                    let start_offset = bit_index % 64;
-                    let mut value: u64;
-                    if start_long >= data.len() {
+                1..=15 => {
+                    let len = read_var_int(buf)? as usize;
+                    if len > 4096 {
                         return None;
                     }
-                    if start_offset + bits_per_block <= 64 {
-                        value = (data[start_long] >> start_offset) & ((1u64 << bits_per_block) - 1);
-                    } else {
-                        // spans two longs
-                        let low = data[start_long] >> start_offset;
-                        let high = if start_long + 1 < data.len() {
-                            data[start_long + 1]
-                                & ((1u64 << (bits_per_block - (64 - start_offset))) - 1)
-                        } else {
-                            0
-                        };
-                        value = (high << (64 - start_offset)) | low;
-                        value &= (1u64 << bits_per_block) - 1;
+                    let mut pal = Vec::with_capacity(len);
+                    for _ in 0..len {
+                        pal.push(read_var_int(buf)? as u16);
                     }
-                    bit_index += bits_per_block;
-
-                    let palette_index = value as usize;
-                    let raw = if palette_index < palette.len() {
-                        palette[palette_index]
-                    } else {
-                        0u16
-                    };
-                    sec.blocks[block_idx] = BlockState::from_raw(raw);
+                    pal
                 }
-                sections.push(sec);
-            } else {
-                sections.push(ChunkSection::new());
-            }
+                16 | _ => {
+                    Vec::new()
+                }
+            };
+
+            let block_data = read_paletted_container_u64s(buf, block_bits, blocks_per_section)?;
+            let blocks = unpack_blocks(&block_data, block_bits, blocks_per_section, &block_palette);
+
+            // ---- Biomes ----
+            let biome_bits = buf.get_u8();
+            match biome_bits {
+                0 => {
+                    let _ = read_var_int(buf)?;
+                }
+                1..=15 => {
+                    let len = read_var_int(buf)? as usize;
+                    if len > 64 {
+                        return None;
+                    }
+                    for _ in 0..len {
+                        let _ = read_var_int(buf)?;
+                    }
+                }
+                16 | _ => {}
+            };
+
+            let _biome_data =
+                read_paletted_container_u64s(buf, biome_bits, 64)?;
+
+            let mut sec = ChunkSection::new();
+            sec.blocks = blocks;
+            sections.push(sec);
         }
 
-        Some(Chunk { sections })
+        if sections.is_empty() {
+            None
+        } else {
+            Some(Chunk { sections })
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::BytesMut;
+    use bytes::{BufMut, BytesMut};
 
-    #[test]
-    fn decode_simple_chunk() {
-        // build payload for only section 0 present, fill with raw value 7
-        let blocks_per_section = SECTION_HEIGHT * CHUNK_WIDTH * CHUNK_WIDTH;
-        let mut payload = BytesMut::new();
-        for _ in 0..blocks_per_section {
-            payload.extend_from_slice(&7u16.to_be_bytes());
-        }
-        let mask = 1u32; // only section 0 present
-        let chunk = Chunk::decode_from_play_payload(&mut payload, mask).expect("decode");
-        assert_eq!(chunk.sections.len(), 16);
-        // section 0 should be filled with 7
-        for &b in chunk.sections[0].blocks.iter() {
-            assert_eq!(b.raw(), 7u16);
-        }
-        // other sections should be air
-        for sec in chunk.sections.iter().skip(1) {
-            for &b in sec.blocks.iter() {
-                assert_eq!(b.raw(), BlockState::AIR.raw());
+    fn encode_section(
+        buf: &mut BytesMut,
+        block_count: u16,
+        block_bits: u8,
+        block_palette: &[u16],
+        block_data: &[u64],
+        biome_bits: u8,
+        biome_palette: &[u16],
+        biome_data: &[u64],
+    ) {
+        buf.put_u16(block_count);
+
+        buf.put_u8(block_bits);
+        match block_bits {
+            0 => {
+                crate::protocol::codec::write_var_int(buf, block_palette[0] as i32);
             }
+            1..=15 => {
+                crate::protocol::codec::write_var_int(buf, block_palette.len() as i32);
+                for &p in block_palette {
+                    crate::protocol::codec::write_var_int(buf, p as i32);
+                }
+            }
+            _ => {}
+        }
+        for &v in block_data {
+            buf.put_u64_le(v);
+        }
+
+        buf.put_u8(biome_bits);
+        match biome_bits {
+            0 => {
+                crate::protocol::codec::write_var_int(buf, biome_palette[0] as i32);
+            }
+            1..=15 => {
+                crate::protocol::codec::write_var_int(buf, biome_palette.len() as i32);
+                for &p in biome_palette {
+                    crate::protocol::codec::write_var_int(buf, p as i32);
+                }
+            }
+            _ => {}
+        }
+        for &v in biome_data {
+            buf.put_u64_le(v);
         }
     }
 
     #[test]
-    fn decode_palette_bitpacked_chunk() {
-        use bytes::BufMut;
+    fn decode_single_section_uniform() {
+        let mut payload = BytesMut::new();
 
+        // One section: uniform blocks of value 7, uniform biome of value 1
+        let block_palette = vec![7u16];
+        let biome_palette = vec![1u16];
+        encode_section(
+            &mut payload,
+            4096,  // block_count
+            0,     // block bits (uniform)
+            &block_palette,
+            &[],   // no block data for uniform
+            0,     // biome bits (uniform)
+            &biome_palette,
+            &[],   // no biome data for uniform
+        );
+
+        let chunk = Chunk::decode_from_play_payload(&mut payload).expect("decode");
+        assert_eq!(chunk.sections.len(), 1);
+        for &b in chunk.sections[0].blocks.iter() {
+            assert_eq!(b.raw(), 7u16);
+        }
+    }
+
+    #[test]
+    fn decode_two_sections_uniform() {
+        let mut payload = BytesMut::new();
+
+        encode_section(
+            &mut payload,
+            4096, 0, &[7u16], &[], 0, &[1u16], &[],
+        );
+        encode_section(
+            &mut payload,
+            4096, 0, &[42u16], &[], 0, &[1u16], &[],
+        );
+
+        let chunk = Chunk::decode_from_play_payload(&mut payload).expect("decode");
+        assert_eq!(chunk.sections.len(), 2);
+        assert_eq!(chunk.sections[0].blocks[0].raw(), 7u16);
+        assert_eq!(chunk.sections[1].blocks[0].raw(), 42u16);
+    }
+
+    #[test]
+    fn decode_palette_bitpacked() {
         let blocks_per_section = SECTION_HEIGHT * CHUNK_WIDTH * CHUNK_WIDTH;
-        // bits per block we'll use for palette indices
-        let bits_per_block = 4usize; // supports up to 16 palette entries
+        let bits_per_block = 4usize;
         let palette = vec![7u16, 42u16];
 
-        // create palette varint encoding
-        let mut payload = BytesMut::new();
-        // palette length
-        crate::protocol::codec::write_var_int(&mut payload, palette.len() as i32);
-        for &p in &palette {
-            crate::protocol::codec::write_var_int(&mut payload, p as i32);
-        }
-
-        // prepare block indices: alternate between palette index 0 and 1
+        // pack block indices: alternate 0, 1
         let mut indices = Vec::with_capacity(blocks_per_section);
         for i in 0..blocks_per_section {
             indices.push((i % 2) as u64);
         }
-
-        // compute longs needed
         let total_bits = blocks_per_section * bits_per_block;
         let long_count = (total_bits + 63) / 64;
-        crate::protocol::codec::write_var_int(&mut payload, long_count as i32);
-
-        // pack into little-endian u64 array
         let mut data = vec![0u64; long_count];
         for (i, &idx) in indices.iter().enumerate() {
             let bit_pos = i * bits_per_block;
@@ -224,24 +294,23 @@ mod tests {
             }
         }
 
-        for v in data.iter() {
-            payload.put_u64_le(*v);
-        }
+        let mut payload = BytesMut::new();
+        encode_section(
+            &mut payload,
+            2048,              // ~half non-air
+            bits_per_block as u8,
+            &palette,
+            &data,
+            0,                 // uniform biome
+            &[1u16],
+            &[],
+        );
 
-        // call parser with mask indicating only section 0 present
-        let mask = 1u32;
-        let mut buf = payload.clone();
-        let chunk = Chunk::decode_from_play_payload(&mut buf, mask).expect("decode palette chunk");
-        // verify section 0 blocks are alternating palette values
+        let chunk = Chunk::decode_from_play_payload(&mut payload).expect("decode");
+        assert_eq!(chunk.sections.len(), 1);
         for (i, &b) in chunk.sections[0].blocks.iter().enumerate() {
             let expected_raw = palette[(i % 2) as usize];
             assert_eq!(b.raw(), expected_raw);
-        }
-        // other sections should be air
-        for sec in chunk.sections.iter().skip(1) {
-            for &b in sec.blocks.iter() {
-                assert_eq!(b.raw(), BlockState::AIR.raw());
-            }
         }
     }
 }

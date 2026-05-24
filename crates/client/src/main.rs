@@ -9,8 +9,8 @@ use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 
 fn main() -> anyhow::Result<()> {
-    std::fs::create_dir_all("logs").ok();
-    let log_path = format!("logs/ferrite-{}.log", chrono_timestamp());
+    std::fs::create_dir_all("logs/ferrite").ok();
+    let log_path = format!("logs/ferrite/ferrite-{}.log", chrono_timestamp());
     let log_file = OpenOptions::new()
         .create(true)
         .append(true)

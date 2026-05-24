@@ -15,7 +15,7 @@ chunk_render_distance = 12
 default_gamemode = "creative"
 
 [database]
-db_path = "saves/新的世界"
+db_path = "world"
 verify_chunk_data = true
 map_size = 1_000
 cache_ttl = 60
@@ -27,4 +27,4 @@ chunks_per_tick_min = 16
 
 [dashboard]
 port = 9000
-secret = "iH00OQGXHO7MUHKn3c0cwNwhvO2KIHJ4"
+secret = "EYWluvjBqLpzkwXoTNTGKuvrl7RMFyTc"

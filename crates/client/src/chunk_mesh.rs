@@ -1,5 +1,21 @@
 use bevy::render::mesh::{Indices, Mesh, PrimitiveTopology};
 
+fn block_raw_to_color(raw: u16) -> [f32; 4] {
+    if raw == 0 {
+        return [0.0, 0.0, 0.0, 1.0];
+    }
+    let h = (raw as u32).wrapping_mul(0x9E3779B9);
+    let r = ((h >> 16) & 0xFF) as f32 / 255.0;
+    let g = ((h >> 8) & 0xFF) as f32 / 255.0;
+    let b = (h & 0xFF) as f32 / 255.0;
+    [
+        r * 0.5 + 0.25,
+        g * 0.5 + 0.25,
+        b * 0.5 + 0.25,
+        1.0,
+    ]
+}
+
 // Greedy meshing for axis-aligned block chunks.
 pub fn chunk_to_mesh(chunk: &ferrite_core::chunk::Chunk, chunk_x: i32, chunk_z: i32) -> Mesh {
     let size_x = ferrite_core::chunk::CHUNK_WIDTH as usize;
@@ -11,6 +27,7 @@ pub fn chunk_to_mesh(chunk: &ferrite_core::chunk::Chunk, chunk_x: i32, chunk_z: 
 
     let mut positions: Vec<[f32; 3]> = Vec::new();
     let mut normals: Vec<[f32; 3]> = Vec::new();
+    let mut colors: Vec<[f32; 4]> = Vec::new();
     let mut uvs: Vec<[f32; 2]> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
 
@@ -197,12 +214,14 @@ pub fn chunk_to_mesh(chunk: &ferrite_core::chunk::Chunk, chunk_x: i32, chunk_z: 
                         _ => unreachable!(),
                     };
 
+                    let block_color = block_raw_to_color(id);
                     positions.push(v0);
                     positions.push(v1);
                     positions.push(v2);
                     positions.push(v3);
                     for _ in 0..4 {
                         normals.push(normal);
+                        colors.push(block_color);
                         uvs.push([0.0, 0.0]);
                     }
                     indices.push(idx_offset + 0);
@@ -223,6 +242,7 @@ pub fn chunk_to_mesh(chunk: &ferrite_core::chunk::Chunk, chunk_x: i32, chunk_z: 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, Default::default());
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     mesh.insert_indices(Indices::U32(indices));
     mesh

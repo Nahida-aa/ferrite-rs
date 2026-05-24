@@ -12,42 +12,50 @@ pub struct ResolvedLibrary {
 pub async fn resolve_libraries(
     cache: &Cache,
     metadata: &manifest::VersionMetadata,
+    libs_base: &Path,
+    natives_dir: &Path,
 ) -> Result<(Vec<ResolvedLibrary>, PathBuf)> {
-    let natives_dir = cache.base.join("natives");
-    fs::create_dir_all(&natives_dir).await?;
-
     let natives_key = manifest::get_natives_key();
     let mut resolved = Vec::new();
 
     for lib in &metadata.libraries {
-        // Check rules
         if let Some(rules) = &lib.rules {
             if !manifest::rule_matches(rules) {
                 continue;
             }
         }
 
-        // Main artifact
+        // Main artifact – save to libraries/<maven_path>
         if let Some(artifact) = &lib.downloads.artifact {
-            let name = lib.name.replace(':', ".") + ".jar";
-            let path = cache
-                .get_jar(&artifact.url, &name, Some(&artifact.sha1))
+            let rel_path = manifest::maven_path(&lib.name);
+            let jar_path = libs_base.join(&rel_path);
+            cache
+                .download_to(&artifact.url, &jar_path, Some(&artifact.sha1))
                 .await?;
             resolved.push(ResolvedLibrary {
-                path,
+                path: jar_path,
                 is_native: false,
             });
         }
 
-        // Native classifiers
+        // Native classifiers – extract to natives_dir/<version>/
         if let Some(natives_key) = lib.natives.as_ref().and_then(|n| n.get(natives_key)) {
             if let Some(classifiers) = &lib.downloads.classifiers {
                 if let Some(native_artifact) = classifiers.get(natives_key) {
-                    let name = lib.name.replace(':', ".") + "-" + natives_key + ".jar";
-                    let jar_path = cache
-                        .get_jar(&native_artifact.url, &name, Some(&native_artifact.sha1))
-                        .await?;
-                    extract_natives(&jar_path, &natives_dir, lib.extract.as_ref()).await?;
+                    let rel_path = manifest::maven_classifier_path(&lib.name, natives_key);
+                    let jar_path = libs_base.join(&rel_path);
+
+                    // Skip natives extraction if natives dir already has .so files
+                    let has_natives = std::fs::read_dir(natives_dir)
+                        .map(|mut e| e.any(|e| e.is_ok()))
+                        .unwrap_or(false);
+                    if !has_natives {
+                        cache
+                            .download_to(&native_artifact.url, &jar_path, Some(&native_artifact.sha1))
+                            .await?;
+                        extract_natives(&jar_path, natives_dir, lib.extract.as_ref()).await?;
+                    }
+
                     resolved.push(ResolvedLibrary {
                         path: jar_path,
                         is_native: true,
@@ -57,7 +65,7 @@ pub async fn resolve_libraries(
         }
     }
 
-    Ok((resolved, natives_dir))
+    Ok((resolved, natives_dir.to_path_buf()))
 }
 
 pub async fn extract_natives(

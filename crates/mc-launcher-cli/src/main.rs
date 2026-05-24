@@ -7,8 +7,8 @@ mod assets;
 mod launch;
 
 use std::path::PathBuf;
-use anyhow::Result;
 use clap::Parser;
+use tracing_subscriber::prelude::*;
 
 const MANIFEST_URL: &str =
     "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -34,87 +34,139 @@ struct Cli {
     #[arg(long)]
     no_assets: bool,
 
+    /// Only download files, don't launch the game
     #[arg(long)]
-    cache: Option<PathBuf>,
+    no_launch: bool,
+
+    #[arg(long, default_value = ".minecraft")]
+    game_dir: PathBuf,
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+async fn main() -> anyhow::Result<()> {
+    let log_dir = PathBuf::from("logs/mc-launcher-cli");
+    tokio::fs::create_dir_all(&log_dir).await?;
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let log_file = log_dir.join(format!("launcher-{}.log", ts));
+    let file = std::fs::File::create(&log_file)?;
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file);
+
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "info".into());
+
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(std::io::stdout)
+                .with_filter(filter.clone()),
+        )
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(non_blocking)
+                .with_ansi(false)
+                .with_filter(filter),
         )
         .init();
 
     let cli = Cli::parse();
+    let game_dir = cli.game_dir.canonicalize().unwrap_or(cli.game_dir.clone());
+    let cache = download::Cache::new(game_dir.join(".cache"));
 
-    let cache_dir = cli
-        .cache
-        .unwrap_or_else(|| {
-            dirs::cache_dir()
-                .unwrap_or_else(|| PathBuf::from("/tmp"))
-                .join("mc-launcher-cli")
-        });
-
-    let cache = download::Cache::new(cache_dir);
-
-    // Fetch version manifest
-    tracing::info!("Fetching version manifest...");
-    let manifest_path = cache.get(MANIFEST_URL, None).await?;
-    let manifest_data = tokio::fs::read_to_string(&manifest_path).await?;
-    let manifest: manifest::VersionManifest = serde_json::from_str(&manifest_data)?;
-
+    // Resolve version ID
     let version_id = if cli.version == "latest" {
+        // Need manifest for "latest"
+        let manifest_data = tokio::fs::read_to_string(
+            &cache.get(MANIFEST_URL, None).await?,
+        ).await?;
+        let manifest: manifest::VersionManifest = serde_json::from_str(&manifest_data)?;
         manifest.latest.release.clone()
     } else {
         cli.version.clone()
     };
 
-    let version_entry = manifest
-        .versions
-        .iter()
-        .find(|v| v.id == version_id)
-        .ok_or_else(|| anyhow::anyhow!("Version '{}' not found", version_id))?;
+    let versions_dir = game_dir.join("versions").join(&version_id);
+    let version_json = versions_dir.join(format!("{}.json", version_id));
+    let client_jar = versions_dir.join(format!("{}.jar", version_id));
 
-    tracing::info!("Fetching metadata for {}...", version_id);
-    let meta_path = cache.get(&version_entry.url, None).await?;
-    let meta_data = tokio::fs::read_to_string(&meta_path).await?;
-    let metadata: manifest::VersionMetadata = serde_json::from_str(&meta_data)?;
+    let metadata = if version_json.exists() {
+        // Reuse existing version metadata
+        tracing::info!("Using existing metadata: {}", version_json.display());
+        let data = tokio::fs::read_to_string(&version_json).await?;
+        serde_json::from_str(&data)?
+    } else {
+        // Fetch from manifest
+        let manifest_data = tokio::fs::read_to_string(
+            &cache.get(MANIFEST_URL, None).await?,
+        ).await?;
+        let manifest: manifest::VersionManifest = serde_json::from_str(&manifest_data)?;
+
+        let entry = manifest
+            .versions
+            .iter()
+            .find(|v| v.id == version_id)
+            .ok_or_else(|| anyhow::anyhow!("Version '{}' not found", version_id))?;
+
+        tracing::info!("Fetching metadata for {}...", version_id);
+        let meta_data = tokio::fs::read_to_string(
+            &cache.get(&entry.url, None).await?,
+        ).await?;
+        let meta: manifest::VersionMetadata = serde_json::from_str(&meta_data)?;
+
+        // Save for next time
+        tokio::fs::create_dir_all(&versions_dir).await?;
+        tokio::fs::write(&version_json, &meta_data).await?;
+
+        meta
+    };
 
     tracing::info!("  Type: {}, Java: {}",
         metadata.kind, metadata.java_version.major_version);
 
-    // Download client jar
-    tracing::info!("Downloading client jar...");
-    let client_jar = cache
-        .get_jar(
-            &metadata.downloads.client.url,
-            &format!("{}.jar", version_id),
-            Some(&metadata.downloads.client.sha1),
-        )
-        .await?;
+    // Download client jar if missing
+    if !client_jar.exists() {
+        tracing::info!("Downloading client jar...");
+        cache
+            .download_to(
+                &metadata.downloads.client.url,
+                &client_jar,
+                Some(&metadata.downloads.client.sha1),
+            )
+            .await?;
+    } else {
+        tracing::info!("Client jar exists: {}", client_jar.display());
+    }
 
-    // Resolve and download libraries
+    // Resolve libraries + natives
     tracing::info!("Resolving libraries...");
-    let (libraries, natives_dir) = library::resolve_libraries(&cache, &metadata).await?;
-    tracing::info!("  {} libraries resolved", libraries.len());
+    let natives_arch = format!("natives-{}-{}", std::env::consts::OS, std::env::consts::ARCH);
+    let natives_dir = versions_dir.join(&natives_arch);
+    // Also check HMCL-style path (natives-linux-x86_64) for existing installations
+    let hmcl_natives = versions_dir.join("natives-linux-x86_64");
+    let natives_dir = if hmcl_natives.exists() { hmcl_natives } else { natives_dir };
+    let (libraries, _) = library::resolve_libraries(
+        &cache, &metadata, &game_dir.join("libraries"), &natives_dir,
+    ).await?;
+    tracing::info!("  {} libraries", libraries.len());
 
     // Assets
-    let game_dir = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from(".minecraft"))
-        .join(".minecraft");
-    let assets_dir = game_dir.join("assets");
-    let assets_root = assets_dir.clone();
+    let assets_root = game_dir.join("assets");
 
     if !cli.no_assets {
         tracing::info!("Downloading assets...");
-        assets::ensure_assets(&cache, &metadata, &assets_dir).await?;
+        assets::ensure_assets(&cache, &metadata, &assets_root).await?;
     } else {
         tracing::info!("Skipping assets (--no-assets)");
     }
 
-    // Launch
+    // Launch (unless --no-launch)
+    if cli.no_launch {
+        tracing::info!("Download complete (--no-launch). Skipping game launch.");
+        return Ok(());
+    }
+
     tracing::info!("Launching Minecraft {}...", version_id);
 
     let config = launch::LaunchConfig {
@@ -127,7 +179,6 @@ async fn main() -> Result<()> {
         access_token: "0".to_string(),
         user_type: "mojang".to_string(),
         game_dir,
-        assets_dir,
         assets_root,
         libraries,
         natives_dir,

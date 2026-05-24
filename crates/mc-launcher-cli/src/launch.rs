@@ -14,7 +14,6 @@ pub struct LaunchConfig {
     pub access_token: String,
     pub user_type: String,
     pub game_dir: PathBuf,
-    pub assets_dir: PathBuf,
     pub assets_root: PathBuf,
     pub libraries: Vec<ResolvedLibrary>,
     pub natives_dir: PathBuf,
@@ -27,10 +26,8 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
     let classpath = build_classpath(&config);
     let natives = config.natives_dir.to_string_lossy().to_string();
 
-    // JVM args
     let mut jvm_args: Vec<String> = Vec::new();
 
-    // Standard JVM args
     jvm_args.push("-Xmx2G".to_string());
     jvm_args.push("-Xms512M".to_string());
     jvm_args.push(format!("-Djava.library.path={}", natives));
@@ -38,14 +35,16 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
         "-Dminecraft.client.jar={}",
         config.client_jar.display()
     ));
+    jvm_args.push(format!(
+        "-Dminecraft.launcher.version={}",
+        env!("CARGO_PKG_VERSION")
+    ));
 
-    // Parse version JSON jvm arguments
     if let Some(ref args) = config.metadata.arguments {
         for arg in &args.jvm {
             match arg {
                 Argument::Simple(s) => {
-                    let sub = substitute(s, &config);
-                    jvm_args.push(sub);
+                    jvm_args.push(substitute(s, &config));
                 }
                 Argument::Rule(rule) => {
                     if manifest::rule_matches(&rule.rules) {
@@ -62,14 +61,11 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
         }
     }
 
-    // Classpath
     jvm_args.push("-cp".to_string());
     jvm_args.push(classpath);
 
-    // Main class
     jvm_args.push(config.metadata.main_class.clone());
 
-    // Game args
     let mut has_username = false;
     if let Some(ref args) = config.metadata.arguments {
         for arg in &args.game {
@@ -109,13 +105,11 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
         }
     }
 
-    // Ensure username is set
     if !has_username {
         jvm_args.push("--username".to_string());
         jvm_args.push(config.username.clone());
     }
 
-    // Add server args if specified
     if let Some(ref server) = config.server {
         jvm_args.push("--server".to_string());
         jvm_args.push(server.clone());
@@ -123,7 +117,7 @@ pub fn launch(config: LaunchConfig) -> Result<Child> {
         jvm_args.push(config.port.unwrap_or(25565).to_string());
     }
 
-    tracing::info!("Launching: {} {}", config.java_path.display(), jvm_args[0]);
+    tracing::info!("Launching Minecraft {}...", config.version);
     tracing::debug!("Full args: {:?}", jvm_args);
 
     let child = Command::new(&config.java_path)
@@ -159,10 +153,10 @@ fn substitute(template: &str, config: &LaunchConfig) -> String {
         ("${library_directory}", config.game_dir.join("libraries").to_string_lossy().to_string()),
         ("${classpath_separator}", if cfg!(windows) { ";" } else { ":" }.to_string()),
         ("${launcher_name}", "mc-launcher-cli".to_string()),
-        ("${launcher_version}", "0.1.0".to_string()),
+        ("${launcher_version}", env!("CARGO_PKG_VERSION").to_string()),
         ("${version_name}", config.version.clone()),
         ("${assets_root}", config.assets_root.to_string_lossy().to_string()),
-        ("${game_assets}", config.assets_dir.to_string_lossy().to_string()),
+        ("${game_assets}", config.assets_root.to_string_lossy().to_string()),
         ("${assets_index_name}", config.metadata.assets.clone()),
         ("${auth_player_name}", config.username.clone()),
         ("${auth_access_token}", config.access_token.clone()),

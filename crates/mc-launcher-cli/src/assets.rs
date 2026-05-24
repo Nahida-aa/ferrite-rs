@@ -7,24 +7,28 @@ use tokio::fs;
 pub async fn ensure_assets(
     cache: &Cache,
     metadata: &VersionMetadata,
-    assets_dir: &Path,
+    assets_root: &Path,
 ) -> Result<()> {
-    // Download asset index
     let asset_index = metadata.asset_index.clone();
-    let index_path = cache
-        .get_jar(&asset_index.url, &format!("{}.json", asset_index.id), Some(&asset_index.sha1))
+    let indexes_dir = assets_root.join("indexes");
+    fs::create_dir_all(&indexes_dir).await?;
+    let index_path = indexes_dir.join(format!("{}.json", asset_index.id));
+
+    // Download asset index to assets/indexes/<id>.json
+    cache
+        .download_to(&asset_index.url, &index_path, Some(&asset_index.sha1))
         .await?;
 
     let index_data = fs::read_to_string(&index_path).await?;
     let index: crate::manifest::AssetIndex = serde_json::from_str(&index_data)?;
 
-    let objects_dir = assets_dir.join("objects");
+    let objects_dir = assets_root.join("objects");
     fs::create_dir_all(&objects_dir).await?;
 
     let total = index.objects.len();
     let mut done = 0;
 
-    for (name, entry) in &index.objects {
+    for (_name, entry) in &index.objects {
         let hash = &entry.hash;
         let sub_dir = &hash[..2];
         let obj_path = objects_dir.join(sub_dir).join(hash);
@@ -34,23 +38,7 @@ pub async fn ensure_assets(
                 "https://resources.download.minecraft.net/{}/{}",
                 sub_dir, hash
             );
-
-            let obj_dir = objects_dir.join(sub_dir);
-            fs::create_dir_all(&obj_dir).await?;
-
-            let response = cache.get(&url, Some(hash)).await;
-            match response {
-                Ok(p) => {
-                    // Move to correct location
-                    let target = obj_dir.join(hash);
-                    if p != target {
-                        fs::copy(&p, &target).await?;
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to download asset {}: {}", name, e);
-                }
-            }
+            cache.download_to(&url, &obj_path, Some(hash)).await?;
         }
 
         done += 1;

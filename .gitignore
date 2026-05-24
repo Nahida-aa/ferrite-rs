@@ -23,3 +23,9 @@
 # Downloaded Minecraft source for reference
 /mc-src
 **/.cache
+
+# Minecraft vanilla client data
+/.minecraft
+
+# Launcher logs
+/logs/mc-launcher-cli
