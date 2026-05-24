@@ -15,10 +15,10 @@ use std::thread::JoinHandle;
 use tokio::runtime::Runtime;
 use world::entity::entity::EntityPosition;
 
+use crate::render::chunk::chunk_render_dispatcher::ChunkRenderRes;
+use crate::render::chunk::section_compiler::chunk_to_mesh;
+use crate::render::texture::texture_atlas::TextureAtlas;
 use crate::server::ServerHandle;
-use client_render::chunk::chunk_render_dispatcher::ChunkRenderRes;
-use client_render::chunk::section_compiler::chunk_to_mesh;
-use client_render::texture::texture_atlas::TextureAtlas;
 
 #[derive(Resource)]
 pub struct NetworkRes {

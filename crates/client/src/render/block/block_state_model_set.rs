@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
+use crate::resources::model::sprite::material::Baked;
+
 use super::dispatch::block_state_model::BlockStateModel;
-use super::dispatch::cube_block_model::{BlockFace, CubeBlockModel, OverlayFace};
-use client_resources::model::sprite::material::Baked;
+use super::dispatch::single_variant::{BlockFace, CubeBlockModel, OverlayFace};
+// use resources::model::sprite::material::Baked;
 use ferrite_core::block::BlockState;
 
 pub struct BlockStateModelSet {
-    pub model_by_state: HashMap<BlockState, Box<dyn BlockStateModel>>,
-    pub missing_model: Box<dyn BlockStateModel>,
+    pub model_by_state: HashMap<BlockState, BlockStateModel>,
+    pub missing_model: BlockStateModel,
     pub textures: Vec<&'static str>,
 }
 
@@ -215,7 +217,7 @@ impl BlockStateModelSet {
 
         macro_rules! id {
             ($id:expr, $model:expr) => {
-                model_by_state.insert(BlockState::from_raw($id), Box::new($model) as Box<dyn BlockStateModel>);
+                model_by_state.insert(BlockState::from_raw($id), $model.into_model());
             };
         }
 
@@ -1181,8 +1183,7 @@ impl BlockStateModelSet {
             )
         );
 
-        let missing_model =
-            Box::new(cube(&textures, [0; 6], false, None)) as Box<dyn BlockStateModel>;
+        let missing_model = cube(&textures, [0; 6], false, None).into_model();
 
         BlockStateModelSet {
             model_by_state,
@@ -1192,15 +1193,15 @@ impl BlockStateModelSet {
     }
 
     // Java 对照: BlockStateModelSet.get
-    pub fn get(&self, state: BlockState) -> &dyn BlockStateModel {
+    pub fn get(&self, state: BlockState) -> &BlockStateModel {
         self.model_by_state
             .get(&state)
-            .map(|m| m.as_ref())
-            .unwrap_or(&*self.missing_model)
+            .unwrap_or(&self.missing_model)
     }
 
-    pub fn missing_model(&self) -> &dyn BlockStateModel {
-        &*self.missing_model
+    // Java 对照: BlockStateModelSet.missingModel
+    pub fn missing_model(&self) -> &BlockStateModel {
+        &self.missing_model
     }
 
     pub fn get_particle_material(&self, state: BlockState) -> Baked {

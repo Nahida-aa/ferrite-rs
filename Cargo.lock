@@ -1397,7 +1397,6 @@ dependencies = [
  "bevy",
  "bevy_diagnostic",
  "chrono",
- "client_render",
  "ferrite_core",
  "gui",
  "image",
@@ -1431,25 +1430,6 @@ dependencies = [
  "gui",
  "tracing",
  "world",
-]
-
-[[package]]
-name = "client_render"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "client_resources",
- "ferrite_core",
- "image",
- "tracing",
- "zip",
-]
-
-[[package]]
-name = "client_resources"
-version = "0.1.0"
-dependencies = [
- "ferrite_core",
 ]
 
 [[package]]

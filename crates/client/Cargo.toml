@@ -8,7 +8,6 @@ ferrite_core.workspace = true
 network.workspace = true
 gui.workspace = true
 world.workspace = true
-client_render.workspace = true
 bevy.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true

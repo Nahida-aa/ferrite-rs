@@ -6,8 +6,6 @@ members = [
     "crates/network",
     "crates/world",
     "crates/world_level",
-    "crates/client_resources",
-    "crates/client_render",
     "crates/client_player",
     "crates/client_multiplayer",
     "crates/client",
@@ -26,8 +24,6 @@ edition = "2024"
 ferrite_core = { path = "crates/core" }
 network = { path = "crates/network" }
 gui = { path = "crates/gui" }
-client_render = { path = "crates/client_render" }
-client_resources = { path = "crates/client_resources" }
 world = { path = "crates/world" }
 
 reqwest = { version = "0.12", default-features = false, features = [

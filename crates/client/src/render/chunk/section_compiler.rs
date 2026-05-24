@@ -1,10 +1,14 @@
 use bevy::render::mesh::{Indices, Mesh, PrimitiveTopology};
 
-use crate::block::block_model_set::BlockModelSet;
-use crate::block::dispatch::cube_block_model::CubeBlockModel;
-use crate::texture::texture_atlas::TextureAtlas;
+// use crate::block::block_model_set::BlockModelSet;
+// use crate::texture::texture_atlas::TextureAtlas;
+use crate::render::{
+    block::{block_model_set::BlockModelSet, dispatch::block_state_model::BlockStateModel},
+    texture::texture_atlas::TextureAtlas,
+};
 use ferrite_core::{
-    block::BlockState, chunk,
+    block::BlockState,
+    chunk,
     direction::{DOWN, EAST, NORTH, SOUTH, UP, WEST},
 };
 
@@ -180,12 +184,9 @@ pub fn chunk_to_mesh(
                         |x: f32, y: f32, z: f32| -> [f32; 3] { [base_x + x, y, base_z + z] };
 
                     let face_idx = face_for_axis(axis, pos_face);
-                    let tex_idx = registry
-                        .get(id)
-                        .as_any()
-                        .downcast_ref::<CubeBlockModel>()
-                        .map(|m| m.faces[face_idx].texture)
-                        .unwrap_or(0);
+                    let tex_idx = match registry.get(id).model {
+                        BlockStateModel::SingleVariant(ref m) => m.faces[face_idx].texture,
+                    };
                     let tex_name = registry.textures().get(tex_idx).copied().unwrap_or("");
                     let sprite = atlas.sprites.get(tex_name);
                     let (u_min, v_min, u_max, v_max) = sprite

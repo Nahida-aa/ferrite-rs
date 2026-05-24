@@ -1,7 +1,8 @@
 mod demo_world;
 mod net_plugin;
+mod render;
+mod resources;
 mod server;
-
 use std::fs::OpenOptions;
 
 use bevy::prelude::*;
@@ -48,7 +49,7 @@ fn main() -> anyhow::Result<()> {
         net_plugin::NetworkPlugin,
         gui::player::PlayerPlugin,
         gui::UIPlugin,
-        client_render::chunk::chunk_render_dispatcher::RenderPlugin,
+        render::chunk::chunk_render_dispatcher::RenderPlugin,
         bevy_diagnostic::FrameTimeDiagnosticsPlugin,
     ));
 

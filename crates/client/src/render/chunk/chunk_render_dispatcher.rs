@@ -1,7 +1,11 @@
-use bevy::prelude::*;
+use bevy::{
+    app::{App, Plugin},
+    asset::Assets,
+    ecs::system::Resource,
+    render::texture::Image,
+};
 
-use crate::block::block_model_set::BlockModelSet;
-use crate::texture::texture_atlas::TextureAtlas;
+use crate::render::{block::block_model_set::BlockModelSet, texture::texture_atlas::TextureAtlas};
 
 #[derive(Resource)]
 pub struct ChunkRenderRes {
