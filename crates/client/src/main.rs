@@ -1,4 +1,5 @@
 mod chunk_mesh;
+mod demo_world;
 mod net_plugin;
 mod render;
 mod server;

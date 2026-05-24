@@ -14,15 +14,11 @@ use ferrite_gui::ui::server_list::{JoinServerButton, LanServerButton};
 
 use crate::chunk_mesh::chunk_to_mesh;
 use crate::render::atlas::TextureAtlasRes;
-use crate::render::block_models::BlockRegistry;
-
-/// Wrapper to keep system parameter count under 16 (Bevy/Rust limit).
-#[derive(Resource)]
-pub struct ChunkRenderRes {
-    pub registry: BlockRegistry,
-    pub atlas: TextureAtlasRes,
-}
+use crate::render::ChunkRenderRes;
 use crate::server::ServerHandle;
+
+#[derive(Resource)]
+pub struct DemoMode(pub bool);
 
 #[derive(Resource)]
 pub struct NetworkRes {
@@ -111,6 +107,7 @@ impl Plugin for NetworkPlugin {
         .insert_resource(ChunkEntities::default())
         .insert_resource(ChunkCount::default())
         .insert_resource(ferrite_gui::DebugOverlayVisible(false))
+        .insert_resource(DemoMode(false))
         .add_event::<NetworkEvent>()
         .add_systems(Update, button_system)
         .add_systems(Update, ferrite_gui::ui::menu::update_world_select_highlight)
@@ -139,6 +136,12 @@ fn handle_pending_connect(
     mut server_spawn: ResMut<PendingServerSpawn>,
     mut net: ResMut<NetworkRes>,
     mut ui: ResMut<UiRes>,
+    mut player: ResMut<PlayerRes>,
+    mut info: ResMut<PlayerInfoRes>,
+    mut clear_color: ResMut<ClearColor>,
+    mut cursor: ResMut<CursorGrabState>,
+    mut commands: Commands,
+    mut network_events: EventWriter<NetworkEvent>,
 ) {
     if pending.0.is_empty() || net.connecting || net.connected {
         return;
@@ -149,6 +152,36 @@ fn handle_pending_connect(
 
     let (address, start_server, _db_path) = pending.0.remove(0);
 
+    // ── Demo World ──
+    if address == "__demo__" {
+        tracing::info!("Starting demo world");
+        ui.last_error = None;
+        net.connected = true;
+        net.connecting = false;
+        player.position = Some((8.0, 73.0, 8.0));
+        info.entity_id = Some(0);
+        info.game_mode = Some(0);
+        cursor.want_grabbed = true;
+        clear_color.0 = Color::srgb(0.53, 0.81, 0.92);
+        commands.insert_resource(DemoMode(true));
+
+        // Send events to trigger normal setup path
+        network_events.send(NetworkEvent::Connected);
+        network_events.send(NetworkEvent::PlayerPosition(8.0, 73.0, 8.0));
+        network_events.send(NetworkEvent::LoginPlay { entity_id: 0, game_mode: 0 });
+
+        // Generate demo chunks
+        for cx in -1i32..=1 {
+            for cz in -1i32..=1 {
+                if let Some(chunk) = crate::demo_world::generate_demo_chunk(cx, cz) {
+                    network_events.send(NetworkEvent::ChunkData { x: cx, z: cz, chunk });
+                }
+            }
+        }
+        return;
+    }
+
+    // ── Normal server connection ──
     ui.last_error = None;
 
     server_spawn.address = Some(address);
@@ -510,11 +543,7 @@ fn button_system(
                 screen.0 = UiScreen::WorldSelect;
             }
             "Demo World" => {
-                pending.0.push((
-                    "127.0.0.1:25565".to_string(),
-                    true,
-                    Some("world".to_string()),
-                ));
+                pending.0.push(("__demo__".to_string(), false, None));
             }
             "Quit" => std::process::exit(0),
             "Back to Game" => {

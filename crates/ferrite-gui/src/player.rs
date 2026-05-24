@@ -96,10 +96,6 @@ fn movement_system(
         Some(p) => p,
         None => return,
     };
-    let sender = match &cmd_tx.0 {
-        Some(s) => s,
-        None => return,
-    };
 
     let forward = Vec3::new(-look.yaw.sin(), 0.0, look.yaw.cos());
     let right = Vec3::new(look.yaw.cos(), 0.0, look.yaw.sin());
@@ -129,12 +125,14 @@ fn movement_system(
 
     player.position = Some((new_x, y, new_z));
 
-    let _ = sender.try_send(NetworkCommand::SetPosition {
-        x: new_x,
-        y,
-        z: new_z,
-        yaw: look.yaw.to_degrees(),
-        pitch: look.pitch.to_degrees(),
-        on_ground: true,
-    });
+    if let Some(sender) = &cmd_tx.0 {
+        let _ = sender.try_send(NetworkCommand::SetPosition {
+            x: new_x,
+            y,
+            z: new_z,
+            yaw: look.yaw.to_degrees(),
+            pitch: look.pitch.to_degrees(),
+            on_ground: true,
+        });
+    }
 }

@@ -3,9 +3,15 @@ pub mod block_models;
 
 use bevy::prelude::*;
 
-use self::atlas::build_texture_atlas;
+use self::atlas::{build_texture_atlas, TextureAtlasRes};
 use self::block_models::BlockRegistry;
-use crate::net_plugin::ChunkRenderRes;
+
+/// Combined resource to keep system parameter count under 16.
+#[derive(Resource)]
+pub struct ChunkRenderRes {
+    pub registry: BlockRegistry,
+    pub atlas: TextureAtlasRes,
+}
 
 pub struct RenderPlugin;
 
