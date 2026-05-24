@@ -46,11 +46,12 @@ fn unpack_blocks(
     data: &[u64],
     bits_per_entry: u8,
     entry_count: usize,
-    palette: &[u16],
+    palette: Option<&[u16]>,
+    is_global: bool,
 ) -> Vec<BlockState> {
     let mut blocks = Vec::with_capacity(entry_count);
     if bits_per_entry == 0 {
-        let raw = palette.first().copied().unwrap_or(0);
+        let raw = palette.and_then(|p| p.first()).copied().unwrap_or(0);
         for _ in 0..entry_count {
             blocks.push(BlockState::from_raw(raw));
         }
@@ -80,15 +81,17 @@ fn unpack_blocks(
             };
             (high << (64 - start_offset)) | low
         };
-        let raw = if bits_per_entry == 16 {
+        let raw = if is_global {
             value as u16
-        } else {
+        } else if let Some(pal) = palette {
             let idx = value as usize;
-            if idx < palette.len() {
-                palette[idx]
+            if idx < pal.len() {
+                pal[idx]
             } else {
                 0
             }
+        } else {
+            0
         };
         blocks.push(BlockState::from_raw(raw));
     }
@@ -113,12 +116,12 @@ impl Chunk {
 
             // ---- Block states ----
             let block_bits = buf.get_u8();
-            let block_palette = match block_bits {
+            let (block_palette, is_global) = match block_bits {
                 0 => {
                     let value = read_var_int(buf)? as u16;
-                    vec![value]
+                    (Some(vec![value]), false)
                 }
-                1..=15 => {
+                1..=8 => {
                     let len = read_var_int(buf)? as usize;
                     if len > 4096 {
                         return None;
@@ -127,15 +130,15 @@ impl Chunk {
                     for _ in 0..len {
                         pal.push(read_var_int(buf)? as u16);
                     }
-                    pal
+                    (Some(pal), false)
                 }
-                16 | _ => {
-                    Vec::new()
+                _ => {
+                    (None, true)
                 }
             };
 
             let block_data = read_paletted_container_u64s(buf, block_bits, blocks_per_section)?;
-            let blocks = unpack_blocks(&block_data, block_bits, blocks_per_section, &block_palette);
+            let blocks = unpack_blocks(&block_data, block_bits, blocks_per_section, block_palette.as_deref(), is_global);
 
             // ---- Biomes ----
             let biome_bits = buf.get_u8();

@@ -158,6 +158,7 @@ impl BlockRegistry {
             "block/coal_ore",
             "block/iron_ore",
             "block/gold_ore",
+            "block/nether_gold_ore",
             "block/copper_ore",
             "block/lapis_ore",
             "block/redstone_ore",
@@ -386,7 +387,7 @@ impl BlockRegistry {
         id!(132, cube_bottom_top(s("block/deepslate_top"), s("block/deepslate_top"), s("block/deepslate_iron_ore")));
         id!(133, cube_all(s("block/coal_ore")));
         id!(134, cube_bottom_top(s("block/deepslate_top"), s("block/deepslate_top"), s("block/deepslate_coal_ore")));
-        id!(135, cube_all(s("block/gold_ore")));
+        id!(135, cube_all(s("block/nether_gold_ore")));
         id!(23970, cube_all(s("block/copper_ore")));
 
         // Deepslate
@@ -432,10 +433,6 @@ impl BlockRegistry {
         id!(2107, cube_all(s("block/red_wool")));
         id!(2108, cube_all(s("block/black_wool")));
 
-        // Terracotta
-        id!(11633, cube_all(s("block/terracotta")));
-        id!(10165, cube_all(s("block/white_terracotta")));
-
         // Other
         id!(560, cube_all(s("block/sponge")));
         id!(562, cube_all(s("block/glass")));
@@ -452,8 +449,6 @@ impl BlockRegistry {
             overlay: None,
             transparent: false,
         });
-        id!(25967, cube_all(s("block/cobbled_deepslate")));
-
         BlockRegistry { models, id_to_index, textures }
     }
 
