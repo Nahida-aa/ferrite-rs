@@ -157,67 +157,6 @@ pub fn chunk_to_mesh(
                     let to_world =
                         |x: f32, y: f32, z: f32| -> [f32; 3] { [base_x + x, y, base_z + z] };
 
-                    let (v0, v1, v2, v3, normal) = match axis {
-                        0 => {
-                            if pos_face {
-                                (
-                                    to_world(x0, y0, z0),
-                                    to_world(x1, y0, z0),
-                                    to_world(x1, y1, z1),
-                                    to_world(x0, y1, z1),
-                                    [1.0, 0.0, 0.0],
-                                )
-                            } else {
-                                (
-                                    to_world(x0, y0, z0),
-                                    to_world(x0, y1, z1),
-                                    to_world(x1, y1, z1),
-                                    to_world(x1, y0, z0),
-                                    [-1.0, 0.0, 0.0],
-                                )
-                            }
-                        }
-                        1 => {
-                            if pos_face {
-                                (
-                                    to_world(x0, y0, z0),
-                                    to_world(x1, y0, z0),
-                                    to_world(x1, y1, z1),
-                                    to_world(x0, y1, z1),
-                                    [0.0, 1.0, 0.0],
-                                )
-                            } else {
-                                (
-                                    to_world(x0, y0, z0),
-                                    to_world(x0, y1, z1),
-                                    to_world(x1, y1, z1),
-                                    to_world(x1, y0, z0),
-                                    [0.0, -1.0, 0.0],
-                                )
-                            }
-                        }
-                        2 => {
-                            if pos_face {
-                                (
-                                    to_world(x0, y0, z0),
-                                    to_world(x0, y1, z1),
-                                    to_world(x1, y1, z1),
-                                    to_world(x1, y0, z0),
-                                    [0.0, 0.0, 1.0],
-                                )
-                            } else {
-                                (
-                                    to_world(x0, y0, z0),
-                                    to_world(x1, y0, z0),
-                                    to_world(x1, y1, z1),
-                                    to_world(x0, y1, z1),
-                                    [0.0, 0.0, -1.0],
-                                )
-                            }
-                        }
-                        _ => unreachable!(),
-                    };
-
                     let face_idx = face_for_axis(axis, pos_face);
                     let tex_idx = registry
                         .get(id)
@@ -229,6 +168,60 @@ pub fn chunk_to_mesh(
                         .copied()
                         .unwrap_or([0.0, 0.0, 1.0, 1.0]);
 
+                    // Each axis has one constant coordinate and two varying ones.
+                    // Vertex order and UV order per vertex are matched together.
+                    let (v0, v1, v2, v3, normal, q_uv) = match (axis, pos_face) {
+                        (0, true) => (
+                            to_world(x0, y0, z0),
+                            to_world(x0, y1, z0),
+                            to_world(x0, y1, z1),
+                            to_world(x0, y0, z1),
+                            [1.0, 0.0, 0.0],
+                            [u_min, v_min, u_min, v_max, u_max, v_max, u_max, v_min],
+                        ),
+                        (0, false) => (
+                            to_world(x0, y0, z0),
+                            to_world(x0, y0, z1),
+                            to_world(x0, y1, z1),
+                            to_world(x0, y1, z0),
+                            [-1.0, 0.0, 0.0],
+                            [u_min, v_min, u_max, v_min, u_max, v_max, u_min, v_max],
+                        ),
+                        (1, true) => (
+                            to_world(x0, y0, z0),
+                            to_world(x0, y0, z1),
+                            to_world(x1, y0, z1),
+                            to_world(x1, y0, z0),
+                            [0.0, 1.0, 0.0],
+                            [u_min, v_min, u_min, v_max, u_max, v_max, u_max, v_min],
+                        ),
+                        (1, false) => (
+                            to_world(x0, y0, z0),
+                            to_world(x1, y0, z0),
+                            to_world(x1, y0, z1),
+                            to_world(x0, y0, z1),
+                            [0.0, -1.0, 0.0],
+                            [u_min, v_min, u_max, v_min, u_max, v_max, u_min, v_max],
+                        ),
+                        (2, true) => (
+                            to_world(x0, y0, z0),
+                            to_world(x1, y0, z0),
+                            to_world(x1, y1, z0),
+                            to_world(x0, y1, z0),
+                            [0.0, 0.0, 1.0],
+                            [u_min, v_min, u_max, v_min, u_max, v_max, u_min, v_max],
+                        ),
+                        (2, false) => (
+                            to_world(x0, y0, z0),
+                            to_world(x0, y1, z0),
+                            to_world(x1, y1, z0),
+                            to_world(x1, y0, z0),
+                            [0.0, 0.0, -1.0],
+                            [u_min, v_min, u_min, v_max, u_max, v_max, u_max, v_min],
+                        ),
+                        _ => unreachable!(),
+                    };
+
                     positions.push(v0);
                     positions.push(v1);
                     positions.push(v2);
@@ -236,10 +229,10 @@ pub fn chunk_to_mesh(
                     for _ in 0..4 {
                         normals.push(normal);
                     }
-                    uvs.push([u_min, v_min]);
-                    uvs.push([u_max, v_min]);
-                    uvs.push([u_max, v_max]);
-                    uvs.push([u_min, v_max]);
+                    uvs.push([q_uv[0], q_uv[1]]);
+                    uvs.push([q_uv[2], q_uv[3]]);
+                    uvs.push([q_uv[4], q_uv[5]]);
+                    uvs.push([q_uv[6], q_uv[7]]);
                     indices.push(idx_offset + 0);
                     indices.push(idx_offset + 1);
                     indices.push(idx_offset + 2);
