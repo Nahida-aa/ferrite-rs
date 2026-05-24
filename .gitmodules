@@ -1,3 +1,3 @@
-[submodule "vendor/ferrumc"]
-	path = vendor/ferrumc
+[submodule "ferrumc"]
+	path = ferrumc
 	url = https://github.com/ferrumc-rs/ferrumc.git
