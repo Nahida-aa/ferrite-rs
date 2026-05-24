@@ -1,8 +1,25 @@
 use bevy::render::mesh::{Indices, Mesh, PrimitiveTopology};
 
 use crate::block::block_model_set::BlockModelSet;
-use ferrite_core::direction::{DOWN, UP, NORTH, SOUTH, WEST, EAST};
 use crate::texture::texture_atlas::TextureAtlas;
+use ferrite_core::direction::{DOWN, EAST, NORTH, SOUTH, UP, WEST};
+
+/// Java 对照: net.minecraft.client.renderer.chunk.SectionCompiler
+pub struct SectionCompiler<'a> {
+    pub registry: &'a BlockModelSet,
+    pub atlas: &'a TextureAtlas,
+}
+
+impl<'a> SectionCompiler<'a> {
+    pub fn new(registry: &'a BlockModelSet, atlas: &'a TextureAtlas) -> Self {
+        Self { registry, atlas }
+    }
+
+    /// Java 对照: SectionCompiler.compile
+    pub fn compile(&self, chunk: &ferrite_core::chunk::Chunk, chunk_x: i32, chunk_z: i32) -> Mesh {
+        chunk_to_mesh(chunk, chunk_x, chunk_z, self.registry, self.atlas)
+    }
+}
 
 fn face_for_axis(axis: usize, pos_face: bool) -> usize {
     match (axis, pos_face) {
@@ -23,6 +40,7 @@ pub fn chunk_to_mesh(
     registry: &BlockModelSet,
     atlas: &TextureAtlas,
 ) -> Mesh {
+    // Java 对照: SectionCompiler.compile -> ModelBlockRenderer.tesselateBlock
     let size_x = ferrite_core::chunk::CHUNK_WIDTH as usize;
     let size_z = ferrite_core::chunk::CHUNK_WIDTH as usize;
     let size_y = chunk.sections.len() * ferrite_core::chunk::SECTION_HEIGHT;
@@ -128,16 +146,28 @@ pub fn chunk_to_mesh(
 
                     let (x0, y0, z0, x1, y1, z1) = match axis {
                         0 => (
-                            w as f32, v as f32, u as f32,
-                            w as f32, (v + height) as f32, (u + width) as f32,
+                            w as f32,
+                            v as f32,
+                            u as f32,
+                            w as f32,
+                            (v + height) as f32,
+                            (u + width) as f32,
                         ),
                         1 => (
-                            u as f32, w as f32, v as f32,
-                            (u + width) as f32, w as f32, (v + height) as f32,
+                            u as f32,
+                            w as f32,
+                            v as f32,
+                            (u + width) as f32,
+                            w as f32,
+                            (v + height) as f32,
                         ),
                         2 => (
-                            u as f32, v as f32, w as f32,
-                            (u + width) as f32, (v + height) as f32, w as f32,
+                            u as f32,
+                            v as f32,
+                            w as f32,
+                            (u + width) as f32,
+                            (v + height) as f32,
+                            w as f32,
                         ),
                         _ => unreachable!(),
                     };

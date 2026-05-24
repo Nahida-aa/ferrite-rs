@@ -4,6 +4,7 @@ members = [
     "crates/ferrite-core",
     "crates/ferrite-net",
     "crates/world",
+    "crates/world_level",
     "crates/client_resources",
     "crates/client_render",
     "crates/client_player",
