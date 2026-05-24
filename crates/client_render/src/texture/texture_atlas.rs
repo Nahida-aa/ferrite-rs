@@ -1,6 +1,6 @@
+use bevy::prelude::*;
 use std::collections::HashMap;
 use std::ops::Deref;
-use bevy::prelude::*;
 
 use super::abstract_texture::AbstractTexture;
 use super::texture_atlas_sprite::TextureAtlasSprite;
@@ -35,7 +35,7 @@ impl TextureAtlas {
             }
             Err(_) => {
                 let jar_path = format!("assets/minecraft/textures/{texture_path}.png");
-                if let Some(ref mut archive) = archive {
+                if let Some(archive) = archive.as_mut() {
                     if let Ok(mut entry) = archive.by_name(&jar_path) {
                         let mut buf = Vec::new();
                         std::io::Read::read_to_end(&mut entry, &mut buf).ok()?;

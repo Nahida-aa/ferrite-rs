@@ -1,22 +1,22 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use tokio::runtime::Runtime;
-use ferrite_net::{Network, NetworkEvent as NetMsg};
-use ferrite_gui::player::{PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerPosition, CmdTx};
-use ferrite_world::entity::entity::EntityPosition;
-use ferrite_gui::{
-    ChunkCount, DebugOverlayUI, HUDUI, MainMenuUI, PauseMenuOpen, PauseMenuUI, PlayWorldButton,
-    SelectedServer, ServerListUI, UiFont, UiRes, UiScreen, UiScreenState, WorldEntryButton,
-    WorldSelectUI, LanDiscoveryState,
-};
-use ferrite_gui::worlds::{SelectedWorld, WorldManager};
+use ferrite_gui::player::{CmdTx, PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerPosition};
 use ferrite_gui::ui::server_list::{JoinServerButton, LanServerButton};
+use ferrite_gui::worlds::{SelectedWorld, WorldManager};
+use ferrite_gui::{
+    ChunkCount, DebugOverlayUI, LanDiscoveryState, MainMenuUI, PauseMenuOpen, PauseMenuUI,
+    PlayWorldButton, SelectedServer, ServerListUI, UiFont, UiRes, UiScreen, UiScreenState,
+    WorldEntryButton, WorldSelectUI, HUDUI,
+};
+use ferrite_net::{Network, NetworkEvent as NetMsg};
+use ferrite_world::entity::entity::EntityPosition;
+use tokio::runtime::Runtime;
 
-use ferrite_client_render::chunk::chunk_render_dispatcher::ChunkRenderRes;
-use ferrite_client_render::chunk::section_compiler::chunk_to_mesh;
-use ferrite_client_render::texture::texture_atlas::TextureAtlas;
 use crate::server::ServerHandle;
+use client_render::chunk::chunk_render_dispatcher::ChunkRenderRes;
+use client_render::chunk::section_compiler::chunk_to_mesh;
+use client_render::texture::texture_atlas::TextureAtlas;
 
 #[derive(Resource)]
 pub struct DemoMode(pub bool);
@@ -120,12 +120,27 @@ impl Plugin for NetworkPlugin {
         .add_systems(Update, ui_system)
         .add_systems(Update, lan_discovery_system)
         .add_systems(Update, ferrite_gui::ui::server_list::update_server_list)
-        .add_systems(Update, ferrite_gui::ui::server_list::update_server_list_highlight)
-        .add_systems(Update, ferrite_gui::ui::server_list::update_join_button_visual)
+        .add_systems(
+            Update,
+            ferrite_gui::ui::server_list::update_server_list_highlight,
+        )
+        .add_systems(
+            Update,
+            ferrite_gui::ui::server_list::update_join_button_visual,
+        )
         .add_systems(Update, ferrite_gui::ui::hud::hud_update_system)
-        .add_systems(Update, ferrite_gui::ui::debug_overlay::debug_overlay_toggle_system)
-        .add_systems(Update, ferrite_gui::ui::debug_overlay::debug_overlay_update_system)
-        .add_systems(Update, ferrite_gui::ui::debug_overlay::debug_overlay_visibility_system)
+        .add_systems(
+            Update,
+            ferrite_gui::ui::debug_overlay::debug_overlay_toggle_system,
+        )
+        .add_systems(
+            Update,
+            ferrite_gui::ui::debug_overlay::debug_overlay_update_system,
+        )
+        .add_systems(
+            Update,
+            ferrite_gui::ui::debug_overlay::debug_overlay_visibility_system,
+        )
         .add_systems(Update, cursor_grab_system);
     }
 }
@@ -159,7 +174,11 @@ fn handle_pending_connect(
         ui.last_error = None;
         net.connected = true;
         net.connecting = false;
-        player.0 = Some(EntityPosition { x: 8.0, y: 72.0, z: 8.0 });
+        player.0 = Some(EntityPosition {
+            x: 8.0,
+            y: 72.0,
+            z: 8.0,
+        });
         info.entity_id = Some(0);
         info.game_mode = Some(0);
         cursor.want_grabbed = true;
@@ -169,13 +188,20 @@ fn handle_pending_connect(
         // Send events to trigger normal setup path
         network_events.send(NetworkEvent::Connected);
         network_events.send(NetworkEvent::PlayerPosition(8.0, 72.0, 8.0));
-        network_events.send(NetworkEvent::LoginPlay { entity_id: 0, game_mode: 0 });
+        network_events.send(NetworkEvent::LoginPlay {
+            entity_id: 0,
+            game_mode: 0,
+        });
 
         // Generate demo chunks
         for cx in -1i32..=1 {
             for cz in -1i32..=1 {
                 if let Some(chunk) = crate::demo_world::generate_demo_chunk(cx, cz) {
-                    network_events.send(NetworkEvent::ChunkData { x: cx, z: cz, chunk });
+                    network_events.send(NetworkEvent::ChunkData {
+                        x: cx,
+                        z: cz,
+                        chunk,
+                    });
                 }
             }
         }
@@ -237,7 +263,11 @@ fn poll_server_startup(
         let server_addr = server_spawn.address.take().unwrap();
         let username = {
             let raw = format!("f_{}", std::process::id());
-            if raw.len() > 16 { raw[..16].to_string() } else { raw }
+            if raw.len() > 16 {
+                raw[..16].to_string()
+            } else {
+                raw
+            }
         };
         let runtime_handle = runtime.0.handle().clone();
         let (network, join) = Network::connect(&runtime_handle, &server_addr, &username);
@@ -249,7 +279,11 @@ fn poll_server_startup(
         let address = server_spawn.address.take().unwrap();
         let username = {
             let raw = format!("f_{}", std::process::id());
-            if raw.len() > 16 { raw[..16].to_string() } else { raw }
+            if raw.len() > 16 {
+                raw[..16].to_string()
+            } else {
+                raw
+            }
         };
         let runtime_handle = runtime.0.handle().clone();
         let (network, join) = Network::connect(&runtime_handle, &address, &username);
@@ -296,8 +330,7 @@ fn drain_network_events_system(
             Ok(None) => break,
             Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
                 tracing::info!("Network task ended");
-                network_events
-                    .send(NetworkEvent::Disconnected("Network task ended".to_string()));
+                network_events.send(NetworkEvent::Disconnected("Network task ended".to_string()));
                 break;
             }
             Err(tokio::sync::mpsc::error::TryRecvError::Empty) => break,
@@ -379,7 +412,11 @@ fn handle_network_events_system(
                 cmd_tx.0 = None;
             }
             NetworkEvent::PlayerPosition(x, y, z) => {
-                player.0 = Some(EntityPosition { x: *x, y: *y, z: *z });
+                player.0 = Some(EntityPosition {
+                    x: *x,
+                    y: *y,
+                    z: *z,
+                });
             }
             NetworkEvent::LoginPlay {
                 entity_id,
@@ -495,11 +532,7 @@ fn button_system(
         // Check if this is the Join Server button
         if join_server_query.get(entity).is_ok() {
             if let Some(ref address) = selected_server.0 {
-                pending.0.push((
-                    address.clone(),
-                    false,
-                    None,
-                ));
+                pending.0.push((address.clone(), false, None));
             }
             continue;
         }

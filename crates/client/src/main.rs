@@ -48,7 +48,7 @@ fn main() -> anyhow::Result<()> {
         net_plugin::NetworkPlugin,
         ferrite_gui::player::PlayerPlugin,
         ferrite_gui::UIPlugin,
-        ferrite_client_render::chunk::chunk_render_dispatcher::RenderPlugin,
+        client_render::chunk::chunk_render_dispatcher::RenderPlugin,
         bevy_diagnostic::FrameTimeDiagnosticsPlugin,
     ));
 
@@ -56,7 +56,11 @@ fn main() -> anyhow::Result<()> {
         app.world_mut()
             .resource_mut::<net_plugin::PendingConnect>()
             .0
-            .push(("localhost:25565".to_string(), true, Some("world".to_string())));
+            .push((
+                "localhost:25565".to_string(),
+                true,
+                Some("world".to_string()),
+            ));
     }
 
     app.run();
