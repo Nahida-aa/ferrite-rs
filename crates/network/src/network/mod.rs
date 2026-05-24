@@ -1,6 +1,7 @@
 mod connection;
 
 use anyhow::Result;
+use ferrite_core::chunk::Chunk;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
@@ -9,15 +10,8 @@ pub enum NetworkEvent {
     Connected,
     Disconnected(String),
     PlayerPosition(f64, f64, f64),
-    LoginPlay {
-        entity_id: i32,
-        game_mode: u8,
-    },
-    ChunkData {
-        x: i32,
-        z: i32,
-        chunk: core::chunk::Chunk,
-    },
+    LoginPlay { entity_id: i32, game_mode: u8 },
+    ChunkData { x: i32, z: i32, chunk: Chunk },
 }
 
 #[derive(Debug)]

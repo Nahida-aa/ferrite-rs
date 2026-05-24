@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use ferrite_core::chunk::Chunk;
 use gui::player::{CmdTx, PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerPosition};
 use gui::ui::server_list::{JoinServerButton, LanServerButton};
 use gui::worlds::{SelectedWorld, WorldManager};
@@ -77,15 +78,8 @@ pub enum NetworkEvent {
     Connected,
     Disconnected(String),
     PlayerPosition(f64, f64, f64),
-    LoginPlay {
-        entity_id: i32,
-        game_mode: u8,
-    },
-    ChunkData {
-        x: i32,
-        z: i32,
-        chunk: core::chunk::Chunk,
-    },
+    LoginPlay { entity_id: i32, game_mode: u8 },
+    ChunkData { x: i32, z: i32, chunk: Chunk },
 }
 
 pub struct NetworkPlugin;

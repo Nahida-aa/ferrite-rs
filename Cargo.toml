@@ -23,7 +23,7 @@ publish = false
 edition = "2024"
 
 [workspace.dependencies]
-core = { path = "crates/core" }
+ferrite_core = { path = "crates/core" }
 network = { path = "crates/network" }
 gui = { path = "crates/gui" }
 client_render = { path = "crates/client_render" }
@@ -48,7 +48,7 @@ bevy = { version = "0.14", default-features = false, features = [
 bevy_ecs = { version = "0.14", default-features = false }
 tokio = { version = "1", default-features = false }
 serde = { version = "1", default-features = false }
-clap = { version = "4", default-features = false }
+clap = { version = "4", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false }
 uuid = { version = "1", default-features = false }
 anyhow = "1"
@@ -65,3 +65,4 @@ flate2 = "1"
 aes = "0.9"
 cfb8 = "0.9"
 rsa = "0.9"
+glam = "0.29"

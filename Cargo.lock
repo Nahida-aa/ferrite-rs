@@ -1398,7 +1398,7 @@ dependencies = [
  "bevy_diagnostic",
  "chrono",
  "client_render",
- "core",
+ "ferrite_core",
  "gui",
  "image",
  "network",
@@ -1415,7 +1415,7 @@ name = "client_multiplayer"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "core",
+ "ferrite_core",
  "gui",
  "tracing",
  "world",
@@ -1426,7 +1426,7 @@ name = "client_player"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "core",
+ "ferrite_core",
  "glam 0.29.3",
  "gui",
  "tracing",
@@ -1439,7 +1439,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "client_resources",
- "core",
+ "ferrite_core",
  "image",
  "tracing",
  "zip",
@@ -1449,7 +1449,7 @@ dependencies = [
 name = "client_resources"
 version = "0.1.0"
 dependencies = [
- "core",
+ "ferrite_core",
 ]
 
 [[package]]
@@ -1591,20 +1591,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1aaf9b65849a68662ac6c0810c8893a765c960b907dd7cfab9c4a50bf764fbc"
 dependencies = [
  "const_soft_float",
-]
-
-[[package]]
-name = "core"
-version = "0.1.0"
-dependencies = [
- "bevy_ecs",
- "bytes",
- "glam 0.29.3",
- "serde",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "uuid",
 ]
 
 [[package]]
@@ -2052,6 +2038,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ferrite_core"
+version = "0.1.0"
+dependencies = [
+ "bevy_ecs",
+ "bytes",
+ "glam 0.29.3",
+ "serde",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2390,7 +2390,7 @@ dependencies = [
  "bevy",
  "bevy_diagnostic",
  "chrono",
- "core",
+ "ferrite_core",
  "network",
  "rand 0.8.6",
  "tokio",
@@ -3306,7 +3306,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "cfb8",
- "core",
+ "ferrite_core",
  "flate2",
  "rand 0.8.6",
  "rsa",
@@ -4568,7 +4568,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "clap",
- "core",
+ "ferrite_core",
  "network",
  "serde_json",
  "socket2 0.5.10",
@@ -5987,7 +5987,7 @@ dependencies = [
 name = "world"
 version = "0.1.0"
 dependencies = [
- "core",
+ "ferrite_core",
  "glam 0.29.3",
 ]
 
@@ -5995,7 +5995,7 @@ dependencies = [
 name = "world_level"
 version = "0.1.0"
 dependencies = [
- "core",
+ "ferrite_core",
 ]
 
 [[package]]

@@ -2,17 +2,20 @@ use aes::Aes128;
 use anyhow::Result;
 use bytes::{Buf, BufMut, BytesMut};
 use cfb8::cipher::KeyIvInit;
+use ferrite_core::chunk::Chunk;
+use ferrite_core::protocol::packets::handshake::Handshake;
+use ferrite_core::protocol::{codec, packets};
 use std::io::{Read, Write};
 
 type AesCfb8Enc = cfb8::Encryptor<Aes128>;
 type AesCfb8Dec = cfb8::Decryptor<Aes128>;
-use core::protocol::codec::{parse_packets, read_var_int, var_int_len, write_var_int};
-use core::protocol::packets::config::{
+use ferrite_core::protocol::codec::{parse_packets, read_var_int, var_int_len, write_var_int};
+use ferrite_core::protocol::packets::config::{
     ClientBoundKnownPacks, ClientBoundPluginMessage, ClientInformation, FinishConfiguration,
     FinishConfigurationAcknowledged, RegistryData, ServerBoundKnownPacks,
 };
-use core::protocol::packets::login::LoginSuccess;
-use core::protocol::packets::play::{KeepAliveC2S, KeepAliveS2C};
+use ferrite_core::protocol::packets::login::{LoginAcknowledged, LoginStart, LoginSuccess};
+use ferrite_core::protocol::packets::play::{KeepAliveC2S, KeepAliveS2C};
 use flate2::read::ZlibDecoder;
 use rsa::Pkcs1v15Encrypt;
 use rsa::RsaPublicKey;
@@ -41,20 +44,13 @@ pub async fn run(
     let mut enc_cipher: Option<AesCfb8Enc> = None;
     let mut dec_cipher: Option<AesCfb8Dec> = None;
 
-    let hs = core::protocol::packets::handshake::Handshake {
-        protocol_version: core::protocol::packets::FERRUMC_PROTOCOL,
+    let hs = Handshake {
+        protocol_version: packets::FERRUMC_PROTOCOL,
         server_address: "127.0.0.1".to_string(),
         server_port: 25565,
         next_state: 2,
     };
-    write_packet(
-        &mut writer,
-        core::protocol::packets::handshake::Handshake::ID,
-        &hs.encode(),
-        &None,
-        &mut None,
-    )
-    .await?;
+    write_packet(&mut writer, Handshake::ID, &hs.encode(), &None, &mut None).await?;
 
     let offline_uuid = uuid::Uuid::from_u128({
         let s = format!("OfflinePlayer:{}", username);
@@ -62,18 +58,11 @@ pub async fn run(
             acc.wrapping_mul(131).wrapping_add(b as u128)
         })
     });
-    let ls = core::protocol::packets::login::LoginStart {
+    let ls = LoginStart {
         username: username.to_string(),
         uuid: offline_uuid,
     };
-    write_packet(
-        &mut writer,
-        core::protocol::packets::login::LoginStart::ID,
-        &ls.encode(),
-        &None,
-        &mut None,
-    )
-    .await?;
+    write_packet(&mut writer, LoginStart::ID, &ls.encode(), &None, &mut None).await?;
 
     let mut login_buf = BytesMut::new();
     loop {
@@ -142,7 +131,7 @@ pub async fn run(
                 tracing::info!("Encryption enabled");
             }
             0x00 => {
-                let reason = core::protocol::codec::read_string(&mut data, 65535)
+                let reason = codec::read_string(&mut data, 65535)
                     .unwrap_or_else(|| format!("<decode error: {} bytes>", data.len()));
                 anyhow::bail!("Login rejected: {}", reason);
             }
@@ -158,8 +147,8 @@ pub async fn run(
     }
 
     {
-        let payload = core::protocol::packets::login::LoginAcknowledged.encode();
-        let id = core::protocol::packets::login::LoginAcknowledged::ID;
+        let payload = LoginAcknowledged.encode();
+        let id = LoginAcknowledged::ID;
         write_packet(&mut writer, id, &payload, &compression, &mut enc_cipher).await?;
     }
 
@@ -402,9 +391,7 @@ async fn run_play_loop(
                             let data_len = data_len as usize;
                             if data.len() >= data_len {
                                 let mut payload = data.split_to(data_len);
-                                if let Some(chunk) =
-                                    core::chunk::Chunk::decode_from_play_payload(&mut payload)
-                                {
+                                if let Some(chunk) = Chunk::decode_from_play_payload(&mut payload) {
                                     let _ =
                                         events.send(NetworkEvent::ChunkData { x, z, chunk }).await;
                                     tracing::info!("ChunkData decoded for chunk ({},{})", x, z);
@@ -565,8 +552,7 @@ async fn read_raw_frame(reader: &mut OwnedReadHalf, buf: &mut BytesMut) -> Resul
 }
 
 fn parse_encryption_request(data: &mut BytesMut) -> Result<(String, Vec<u8>, Vec<u8>)> {
-    let server_id =
-        core::protocol::codec::read_string(data, 32767).ok_or(anyhow::anyhow!("bad server id"))?;
+    let server_id = codec::read_string(data, 32767).ok_or(anyhow::anyhow!("bad server id"))?;
     let pubkey_len = read_var_int(data).ok_or(anyhow::anyhow!("bad pubkey len"))? as usize;
     let pubkey = data.split_to(pubkey_len).to_vec();
     let token_len = read_var_int(data).ok_or(anyhow::anyhow!("bad token len"))? as usize;
@@ -583,7 +569,7 @@ async fn write_packet(
 ) -> Result<()> {
     let raw_payload = {
         let mut p = Vec::with_capacity(var_int_len(id) + data.len());
-        core::protocol::codec::write_var_int(&mut p, id);
+        codec::write_var_int(&mut p, id);
         p.extend_from_slice(data);
         p
     };
@@ -592,7 +578,7 @@ async fn write_packet(
         encode_compressed_frame(&raw_payload, comp)
     } else {
         let mut f = BytesMut::new();
-        core::protocol::codec::write_var_int(&mut f, raw_payload.len() as i32);
+        codec::write_var_int(&mut f, raw_payload.len() as i32);
         f.extend_from_slice(&raw_payload);
         f
     };
@@ -621,9 +607,9 @@ fn encode_compressed_frame(raw_payload: &[u8], comp: &Compression) -> BytesMut {
         let compressed = encoder.finish().unwrap();
         let mut frame = BytesMut::new();
         let mut data_header = Vec::new();
-        core::protocol::codec::write_var_int(&mut data_header, raw_payload.len() as i32);
+        codec::write_var_int(&mut data_header, raw_payload.len() as i32);
         let data_len = data_header.len() + compressed.len();
-        core::protocol::codec::write_var_int(&mut frame, data_len as i32);
+        codec::write_var_int(&mut frame, data_len as i32);
         frame.extend_from_slice(&data_header);
         frame.extend_from_slice(&compressed);
         frame
@@ -631,8 +617,8 @@ fn encode_compressed_frame(raw_payload: &[u8], comp: &Compression) -> BytesMut {
         let mut frame = BytesMut::new();
         let data_header_len = var_int_len(0);
         let total = data_header_len + raw_payload.len();
-        core::protocol::codec::write_var_int(&mut frame, total as i32);
-        core::protocol::codec::write_var_int(&mut frame, 0);
+        codec::write_var_int(&mut frame, total as i32);
+        codec::write_var_int(&mut frame, 0);
         frame.extend_from_slice(raw_payload);
         frame
     }
