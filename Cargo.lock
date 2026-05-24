@@ -2037,12 +2037,36 @@ dependencies = [
  "ferrite-core",
  "ferrite-gui",
  "ferrite-net",
+ "ferrite-world",
  "image",
  "rand 0.8.6",
  "tokio",
  "tracing",
  "tracing-subscriber",
  "zip",
+]
+
+[[package]]
+name = "ferrite-client-multiplayer"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ferrite-core",
+ "ferrite-gui",
+ "ferrite-world",
+ "tracing",
+]
+
+[[package]]
+name = "ferrite-client-player"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ferrite-core",
+ "ferrite-gui",
+ "ferrite-world",
+ "glam 0.29.3",
+ "tracing",
 ]
 
 [[package]]
@@ -2069,6 +2093,7 @@ dependencies = [
  "chrono",
  "ferrite-core",
  "ferrite-net",
+ "ferrite-world",
  "rand 0.8.6",
  "tokio",
  "tracing",
@@ -2090,6 +2115,14 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "ferrite-world"
+version = "0.1.0"
+dependencies = [
+ "ferrite-core",
+ "glam 0.29.3",
 ]
 
 [[package]]

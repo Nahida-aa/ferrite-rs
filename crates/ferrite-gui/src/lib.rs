@@ -71,10 +71,13 @@ pub struct SelectedServer(pub Option<String>);
 
 // ── Player Resources ──
 
+use ferrite_world::entity::entity::{EntityPosition, EntityLook};
+
 #[derive(Resource)]
-pub struct PlayerRes {
-    pub position: Option<(f64, f64, f64)>,
-}
+pub struct PlayerPosition(pub Option<EntityPosition>);
+
+#[derive(Resource, Default)]
+pub struct PlayerLook(pub EntityLook);
 
 #[derive(Resource)]
 pub struct PlayerInfoRes {
@@ -87,21 +90,6 @@ impl Default for PlayerInfoRes {
         Self {
             entity_id: None,
             game_mode: None,
-        }
-    }
-}
-
-#[derive(Resource)]
-pub struct PlayerLookRes {
-    pub yaw: f32,
-    pub pitch: f32,
-}
-
-impl Default for PlayerLookRes {
-    fn default() -> Self {
-        Self {
-            yaw: 0.0,
-            pitch: 0.3,
         }
     }
 }

@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use tokio::runtime::Runtime;
 use ferrite_net::{Network, NetworkEvent as NetMsg};
-use ferrite_gui::player::{PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerRes, CmdTx};
+use ferrite_gui::player::{PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerPosition, CmdTx};
+use ferrite_world::entity::entity::EntityPosition;
 use ferrite_gui::{
     ChunkCount, DebugOverlayUI, HUDUI, MainMenuUI, PauseMenuOpen, PauseMenuUI, PlayWorldButton,
     SelectedServer, ServerListUI, UiFont, UiRes, UiScreen, UiScreenState, WorldEntryButton,
@@ -136,7 +137,7 @@ fn handle_pending_connect(
     mut server_spawn: ResMut<PendingServerSpawn>,
     mut net: ResMut<NetworkRes>,
     mut ui: ResMut<UiRes>,
-    mut player: ResMut<PlayerRes>,
+    mut player: ResMut<PlayerPosition>,
     mut info: ResMut<PlayerInfoRes>,
     mut clear_color: ResMut<ClearColor>,
     mut cursor: ResMut<CursorGrabState>,
@@ -158,7 +159,7 @@ fn handle_pending_connect(
         ui.last_error = None;
         net.connected = true;
         net.connecting = false;
-        player.position = Some((8.0, 72.0, 8.0));
+        player.0 = Some(EntityPosition { x: 8.0, y: 72.0, z: 8.0 });
         info.entity_id = Some(0);
         info.game_mode = Some(0);
         cursor.want_grabbed = true;
@@ -308,7 +309,7 @@ fn drain_network_events_system(
 
 fn handle_network_events_system(
     mut events: EventReader<NetworkEvent>,
-    mut player: ResMut<PlayerRes>,
+    mut player: ResMut<PlayerPosition>,
     mut ui: ResMut<UiRes>,
     mut clear_color: ResMut<ClearColor>,
     mut cmd_tx: ResMut<CmdTx>,
@@ -370,7 +371,7 @@ fn handle_network_events_system(
                 net.connected = false;
                 net.connecting = false;
                 paused.0 = false;
-                player.position = None;
+                player.0 = None;
                 info.entity_id = None;
                 info.game_mode = None;
                 cursor.want_grabbed = false;
@@ -378,7 +379,7 @@ fn handle_network_events_system(
                 cmd_tx.0 = None;
             }
             NetworkEvent::PlayerPosition(x, y, z) => {
-                player.position = Some((*x, *y, *z));
+                player.0 = Some(EntityPosition { x: *x, y: *y, z: *z });
             }
             NetworkEvent::LoginPlay {
                 entity_id,

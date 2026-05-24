@@ -3,6 +3,9 @@ resolver = "2"
 members = [
     "crates/ferrite-core",
     "crates/ferrite-net",
+    "crates/world",
+    "crates/client_player",
+    "crates/client_multiplayer",
     "crates/client",
     "crates/server-cli",
     # Tooling

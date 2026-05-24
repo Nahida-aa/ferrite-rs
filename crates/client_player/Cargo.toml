@@ -1,13 +1,12 @@
 [package]
-name = "ferrite-client"
+name = "ferrite-client-player"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 ferrite-core = { path = "../ferrite-core" }
-ferrite-net = { path = "../ferrite-net" }
-ferrite-gui = { path = "../ferrite-gui" }
 ferrite-world = { path = "../world" }
+ferrite-gui = { path = "../ferrite-gui" }
 bevy = { version = "0.14", default-features = false, features = [
     "bevy_winit",
     "bevy_ui",
@@ -18,12 +17,5 @@ bevy = { version = "0.14", default-features = false, features = [
     "default_font",
     "x11",
 ] }
-tokio = { version = "1", features = ["full"] }
+glam = "0.29"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-anyhow = "1"
-rand = "0.8"
-chrono = "0.4"
-bevy_diagnostic = "0.14"
-image = "0.25"
-zip = "2"

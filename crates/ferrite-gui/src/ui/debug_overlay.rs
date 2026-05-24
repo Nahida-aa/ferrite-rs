@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 
 use crate::{
-    DebugOverlayUI, DebugOverlayVisible, PlayerInfoRes, PlayerLookRes, PlayerRes,
+    DebugOverlayUI, DebugOverlayVisible, PlayerInfoRes, PlayerLook, PlayerPosition,
 };
 
 const VERSION: &str = "1.21.8";
@@ -42,9 +42,9 @@ pub fn spawn_debug_overlay(commands: &mut Commands, font: &Handle<Font>) {
 
 fn generate_lines(
     fps: f64,
-    player_pos: Option<(f64, f64, f64)>,
+    player_pos: Option<&ferrite_world::entity::entity::EntityPosition>,
     info: Option<&PlayerInfoRes>,
-    look: Option<&PlayerLookRes>,
+    look: Option<&PlayerLook>,
     chunk_count: Option<usize>,
     display_res: Option<&str>,
     server_name: Option<&str>,
@@ -53,7 +53,8 @@ fn generate_lines(
     let fps_str = format!("{:.0}", fps);
 
     let (xyz, block, chunk, facing) = match player_pos {
-        Some((x, y, z)) => {
+        Some(p) => {
+            let (x, y, z) = (p.x, p.y, p.z);
             let bx = x.floor() as i32;
             let by = y.floor() as i32;
             let bz = z.floor() as i32;
@@ -65,7 +66,7 @@ fn generate_lines(
                 format!("{x:.3} / {y:.5} / {z:.3}"),
                 format!("{bx} {by} {bz}"),
                 format!("{cx} {cz} [{cx} {cz} in r.{rx}.{rz}.mca]"),
-                facing_from_yaw(look.map(|l| l.yaw).unwrap_or(0.0)),
+                facing_from_yaw(look.map(|l| l.0.yaw).unwrap_or(0.0)),
             )
         }
         None => (
@@ -81,7 +82,7 @@ fn generate_lines(
         .map(|e| format!("{e}"))
         .unwrap_or_else(|| "??".to_string());
     let yaw_pitch = look
-        .map(|l| format!("{:.0} / {:.1}", l.yaw.to_degrees(), l.pitch.to_degrees()))
+        .map(|l| format!("{:.0} / {:.1}", l.0.yaw.to_degrees(), l.0.pitch.to_degrees()))
         .unwrap_or_else(|| "? / ?".to_string());
 
     let chunks_str = chunk_count
@@ -152,9 +153,9 @@ pub fn debug_overlay_update_system(
     mut root_query: Query<&mut Children, With<DebugOverlayUI>>,
     mut text_query: Query<&mut Text>,
     diagnostics: Res<DiagnosticsStore>,
-    player: Res<PlayerRes>,
+    player: Res<PlayerPosition>,
     info: Res<PlayerInfoRes>,
-    look: Res<PlayerLookRes>,
+    look: Res<PlayerLook>,
     windows: Query<&Window>,
     chunk_count: Res<crate::ChunkCount>,
 ) {
@@ -174,7 +175,7 @@ pub fn debug_overlay_update_system(
 
     let lines = generate_lines(
         fps,
-        player.position,
+        player.0.as_ref(),
         Some(&*info),
         Some(&*look),
         Some(chunk_count.0),
