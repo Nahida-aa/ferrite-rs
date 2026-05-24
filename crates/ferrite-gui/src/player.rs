@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use tokio::sync::mpsc;
 
 pub use crate::{PauseMenuOpen, PlayerBlock, PlayerInfoRes, PlayerLookRes, PlayerRes, PlayerBlockEntity};
@@ -16,8 +17,17 @@ impl Plugin for PlayerPlugin {
             .insert_resource(PlayerLookRes::default())
             .insert_resource(crate::PlayerBlockEntity(None))
             .insert_resource(CmdTx(None))
+            .add_systems(Startup, spawn_camera)
             .add_systems(Update, (look_system, camera_follow_player, movement_system));
     }
+}
+
+fn spawn_camera(mut commands: Commands) {
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(0.0, 4.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        tonemapping: Tonemapping::None,
+        ..default()
+    });
 }
 
 fn look_system(

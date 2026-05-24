@@ -413,7 +413,7 @@ fn button_system(
         // Check if this is a LAN server button
         if let Ok(btn) = lan_button_query.get(entity) {
             pending.0.push((
-                format!("{}:25565", btn.0),
+                btn.0.clone(),
                 false,
                 None,
             ));

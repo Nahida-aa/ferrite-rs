@@ -5,6 +5,7 @@ mod server;
 use std::fs::OpenOptions;
 
 use bevy::prelude::*;
+use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 
 fn main() -> anyhow::Result<()> {
@@ -18,19 +19,31 @@ fn main() -> anyhow::Result<()> {
     let mut filter = EnvFilter::builder()
         .with_env_var("FERRITE_LOG")
         .from_env_lossy();
+    filter = filter.add_directive("info".parse().unwrap());
     filter = filter.add_directive("ferrite_client=debug".parse().unwrap());
-    tracing_subscriber::fmt()
-        .with_target(false)
+    filter = filter.add_directive("ferrite_gui=debug".parse().unwrap());
+
+    let file_layer = tracing_subscriber::fmt::layer()
         .with_writer(log_file)
         .with_ansi(false)
-        .with_env_filter(filter)
+        .with_target(false);
+
+    let stdout_layer = tracing_subscriber::fmt::layer()
+        .with_writer(std::io::stdout)
+        .with_ansi(true)
+        .with_target(true);
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(file_layer)
+        .with(stdout_layer)
         .init();
 
     let auto_connect = std::env::args().any(|a| a == "--auto-connect");
 
     let mut app = App::new();
     app.insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.05)));
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>());
     app.add_plugins((
         net_plugin::NetworkPlugin,
         ferrite_gui::player::PlayerPlugin,
