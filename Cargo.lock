@@ -2034,6 +2034,7 @@ dependencies = [
  "bevy",
  "bevy_diagnostic",
  "chrono",
+ "ferrite-client-render",
  "ferrite-core",
  "ferrite-gui",
  "ferrite-net",
@@ -2067,6 +2068,17 @@ dependencies = [
  "ferrite-world",
  "glam 0.29.3",
  "tracing",
+]
+
+[[package]]
+name = "ferrite-client-render"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "ferrite-core",
+ "image",
+ "tracing",
+ "zip",
 ]
 
 [[package]]

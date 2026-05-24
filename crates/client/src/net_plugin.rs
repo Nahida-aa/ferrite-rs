@@ -13,9 +13,9 @@ use ferrite_gui::{
 use ferrite_gui::worlds::{SelectedWorld, WorldManager};
 use ferrite_gui::ui::server_list::{JoinServerButton, LanServerButton};
 
-use crate::chunk_mesh::chunk_to_mesh;
-use crate::render::atlas::TextureAtlasRes;
-use crate::render::ChunkRenderRes;
+use ferrite_client_render::chunk::chunk_render_dispatcher::ChunkRenderRes;
+use ferrite_client_render::chunk::section_compiler::chunk_to_mesh;
+use ferrite_client_render::texture::texture_atlas::TextureAtlas;
 use crate::server::ServerHandle;
 
 #[derive(Resource)]
@@ -59,13 +59,13 @@ pub struct ChunkEntities {
 pub fn get_chunk_material(
     materials: &mut Assets<StandardMaterial>,
     entities: &mut ChunkEntities,
-    atlas: &TextureAtlasRes,
+    atlas: &TextureAtlas,
 ) -> Handle<StandardMaterial> {
     if let Some(ref handle) = entities.chunk_material {
         return handle.clone();
     }
     let handle = materials.add(StandardMaterial {
-        base_color_texture: Some(atlas.atlas_handle.clone()),
+        base_color_texture: Some(atlas.texture.clone()),
         ..Default::default()
     });
     entities.chunk_material = Some(handle.clone());

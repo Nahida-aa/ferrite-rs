@@ -1,7 +1,5 @@
-mod chunk_mesh;
 mod demo_world;
 mod net_plugin;
-mod render;
 mod server;
 
 use std::fs::OpenOptions;
@@ -50,7 +48,7 @@ fn main() -> anyhow::Result<()> {
         net_plugin::NetworkPlugin,
         ferrite_gui::player::PlayerPlugin,
         ferrite_gui::UIPlugin,
-        render::RenderPlugin,
+        ferrite_client_render::chunk::chunk_render_dispatcher::RenderPlugin,
         bevy_diagnostic::FrameTimeDiagnosticsPlugin,
     ));
 

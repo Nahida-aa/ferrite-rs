@@ -1,7 +1,8 @@
 use bevy::render::mesh::{Indices, Mesh, PrimitiveTopology};
 
-use crate::render::atlas::TextureAtlasRes;
-use crate::render::block_models::{BlockRegistry, DOWN, UP, NORTH, SOUTH, WEST, EAST};
+use crate::block::block_model_set::BlockModelSet;
+use ferrite_core::direction::{DOWN, UP, NORTH, SOUTH, WEST, EAST};
+use crate::texture::texture_atlas::TextureAtlas;
 
 fn face_for_axis(axis: usize, pos_face: bool) -> usize {
     match (axis, pos_face) {
@@ -15,13 +16,12 @@ fn face_for_axis(axis: usize, pos_face: bool) -> usize {
     }
 }
 
-// Greedy meshing for axis-aligned block chunks.
 pub fn chunk_to_mesh(
     chunk: &ferrite_core::chunk::Chunk,
     chunk_x: i32,
     chunk_z: i32,
-    registry: &BlockRegistry,
-    atlas: &TextureAtlasRes,
+    registry: &BlockModelSet,
+    atlas: &TextureAtlas,
 ) -> Mesh {
     let size_x = ferrite_core::chunk::CHUNK_WIDTH as usize;
     let size_z = ferrite_core::chunk::CHUNK_WIDTH as usize;
@@ -128,28 +128,16 @@ pub fn chunk_to_mesh(
 
                     let (x0, y0, z0, x1, y1, z1) = match axis {
                         0 => (
-                            w as f32,
-                            v as f32,
-                            u as f32,
-                            w as f32,
-                            (v + height) as f32,
-                            (u + width) as f32,
+                            w as f32, v as f32, u as f32,
+                            w as f32, (v + height) as f32, (u + width) as f32,
                         ),
                         1 => (
-                            u as f32,
-                            w as f32,
-                            v as f32,
-                            (u + width) as f32,
-                            w as f32,
-                            (v + height) as f32,
+                            u as f32, w as f32, v as f32,
+                            (u + width) as f32, w as f32, (v + height) as f32,
                         ),
                         2 => (
-                            u as f32,
-                            v as f32,
-                            w as f32,
-                            (u + width) as f32,
-                            (v + height) as f32,
-                            w as f32,
+                            u as f32, v as f32, w as f32,
+                            (u + width) as f32, (v + height) as f32, w as f32,
                         ),
                         _ => unreachable!(),
                     };
@@ -162,14 +150,12 @@ pub fn chunk_to_mesh(
                         .get(id)
                         .map(|m| m.faces[face_idx].texture)
                         .unwrap_or(0);
-                    let [u_min, v_min, u_max, v_max] = atlas
-                        .uvs
-                        .get(tex_idx)
-                        .copied()
-                        .unwrap_or([0.0, 0.0, 1.0, 1.0]);
+                    let tex_name = registry.models.textures.get(tex_idx).copied().unwrap_or("");
+                    let sprite = atlas.sprites.get(tex_name);
+                    let (u_min, v_min, u_max, v_max) = sprite
+                        .map(|s| (s.u0, s.v0, s.u1, s.v1))
+                        .unwrap_or((0.0, 0.0, 1.0, 1.0));
 
-                    // Each axis has one constant coordinate and two varying ones.
-                    // Vertex order and UV order per vertex are matched together.
                     let (v0, v1, v2, v3, normal, q_uv) = match (axis, pos_face) {
                         (0, true) => (
                             to_world(x0, y0, z0),

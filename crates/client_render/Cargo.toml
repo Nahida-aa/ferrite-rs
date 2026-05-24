@@ -1,0 +1,18 @@
+[package]
+name = "ferrite-client-render"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ferrite-core = { path = "../ferrite-core" }
+bevy = { version = "0.14", default-features = false, features = [
+    "bevy_winit",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_pbr",
+    "bevy_asset",
+    "x11",
+] }
+image = "0.25"
+zip = "2"
+tracing = "0.1"
