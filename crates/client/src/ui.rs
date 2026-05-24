@@ -73,9 +73,10 @@ impl Plugin for UIPlugin {
 }
 
 fn load_ui_font(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Load the crate-local font only. Ensure the font file is placed under
-    // `crates/client/assets/fonts/JetBrainsMonoNerdFont.ttf` so Bevy finds it.
-    commands.insert_resource(UiFont(asset_server.load("fonts/JetBrainsMonoNerdFont.ttf")));
+    // Use Noto Sans SC (supports Chinese) as the default UI font so Chinese
+    // characters render correctly. The file is stored under
+    // `crates/client/assets/fonts/NotoSansSC.ttf`.
+    commands.insert_resource(UiFont(asset_server.load("fonts/NotoSansSC.ttf")));
 }
 
 // ── Camera & Ground (Startup) ──
