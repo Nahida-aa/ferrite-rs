@@ -1,12 +1,15 @@
 use bevy::prelude::*;
 
-use crate::{LanDiscoveryState, ServerListUI, UiFont};
+use crate::{DiscoveredServer, LanDiscoveryState, SelectedServer, ServerListUI, UiFont};
 
 #[derive(Component)]
 pub struct ServerEntryContainer;
 
 #[derive(Component)]
 pub struct LanServerButton(pub String);
+
+#[derive(Component)]
+pub struct JoinServerButton;
 
 pub fn spawn_server_list(commands: &mut Commands, font: &Handle<Font>) {
     commands
@@ -54,7 +57,16 @@ pub fn spawn_server_list(commands: &mut Commands, font: &Handle<Font>) {
 
             parent.spawn(NodeBundle {
                 style: Style {
-                    height: Val::Px(30.0),
+                    height: Val::Px(20.0),
+                    ..default()
+                },
+                ..default()
+            });
+
+            join_btn(parent, font);
+            parent.spawn(NodeBundle {
+                style: Style {
+                    height: Val::Px(6.0),
                     ..default()
                 },
                 ..default()
@@ -122,7 +134,41 @@ pub fn update_server_list(
     }
 }
 
-fn server_entry(parent: &mut ChildBuilder, server: &crate::DiscoveredServer, font: &Handle<Font>) {
+pub fn update_server_list_highlight(
+    selected: Res<SelectedServer>,
+    server_entries: Query<(Entity, &LanServerButton, &Children)>,
+    mut text_query: Query<&mut Text>,
+) {
+    for (_entity, btn, children) in server_entries.iter() {
+        let is_selected = selected.0.as_deref() == Some(btn.0.as_str());
+        for &child in children.iter() {
+            if let Ok(mut text) = text_query.get_mut(child) {
+                for section in text.sections.iter_mut() {
+                    if is_selected {
+                        section.style.color = Color::srgb(1.0, 1.0, 0.6);
+                    } else {
+                        section.style.color = Color::WHITE;
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn update_join_button_visual(
+    selected: Res<SelectedServer>,
+    mut join_btn: Query<&mut BackgroundColor, With<JoinServerButton>>,
+) {
+    for mut color in join_btn.iter_mut() {
+        if selected.0.is_some() {
+            *color = Color::srgb(0.25, 0.55, 0.25).into();
+        } else {
+            *color = Color::srgb(0.15, 0.15, 0.15).into();
+        }
+    }
+}
+
+fn server_entry(parent: &mut ChildBuilder, server: &DiscoveredServer, font: &Handle<Font>) {
     parent
         .spawn(ButtonBundle {
             style: Style {
@@ -162,6 +208,32 @@ fn server_entry(parent: &mut ChildBuilder, server: &crate::DiscoveredServer, fon
                     font: font.clone(),
                     font_size: 11.0,
                     color: Color::srgb(0.5, 0.5, 0.5),
+                },
+            ));
+        });
+}
+
+fn join_btn(parent: &mut ChildBuilder, font: &Handle<Font>) {
+    parent
+        .spawn(ButtonBundle {
+            style: Style {
+                width: Val::Px(200.0),
+                height: Val::Px(40.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            background_color: Color::srgb(0.15, 0.15, 0.15).into(),
+            ..default()
+        })
+        .insert(JoinServerButton)
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Join Server",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 20.0,
+                    color: Color::WHITE,
                 },
             ));
         });

@@ -5,11 +5,12 @@ use tokio::runtime::Runtime;
 use ferrite_net::{Network, NetworkEvent as NetMsg};
 use ferrite_gui::player::{PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerRes, CmdTx};
 use ferrite_gui::{
-    HUDUI, MainMenuUI, PauseMenuOpen, PauseMenuUI, PlayWorldButton, ServerListUI, UiFont,
-    UiRes, UiScreen, UiScreenState, WorldEntryButton, WorldSelectUI, LanDiscoveryState,
+    HUDUI, MainMenuUI, PauseMenuOpen, PauseMenuUI, PlayWorldButton, SelectedServer,
+    ServerListUI, UiFont, UiRes, UiScreen, UiScreenState, WorldEntryButton, WorldSelectUI,
+    LanDiscoveryState,
 };
 use ferrite_gui::worlds::{SelectedWorld, WorldManager};
-use ferrite_gui::ui::server_list::LanServerButton;
+use ferrite_gui::ui::server_list::{JoinServerButton, LanServerButton};
 
 use crate::chunk_mesh::chunk_to_mesh;
 use crate::server::ServerHandle;
@@ -95,6 +96,8 @@ impl Plugin for NetworkPlugin {
                 ui_system,
                 lan_discovery_system,
                 ferrite_gui::ui::server_list::update_server_list,
+                ferrite_gui::ui::server_list::update_server_list_highlight,
+                ferrite_gui::ui::server_list::update_join_button_visual,
                 ferrite_gui::ui::hud::hud_update_system,
                 cursor_grab_system,
             )
@@ -172,7 +175,10 @@ fn poll_server_startup(
         };
 
         let server_addr = server_spawn.address.take().unwrap();
-        let username = format!("FerritePlayer_{}", std::process::id());
+        let username = {
+            let raw = format!("f_{}", std::process::id());
+            if raw.len() > 16 { raw[..16].to_string() } else { raw }
+        };
         let runtime_handle = runtime.0.handle().clone();
         let (network, join) = Network::connect(&runtime_handle, &server_addr, &username);
         cmd_tx.0 = Some(network.command_sender());
@@ -181,7 +187,10 @@ fn poll_server_startup(
     } else {
         // No server needed — connect directly
         let address = server_spawn.address.take().unwrap();
-        let username = format!("FerritePlayer_{}", std::process::id());
+        let username = {
+            let raw = format!("f_{}", std::process::id());
+            if raw.len() > 16 { raw[..16].to_string() } else { raw }
+        };
         let runtime_handle = runtime.0.handle().clone();
         let (network, join) = Network::connect(&runtime_handle, &address, &username);
         cmd_tx.0 = Some(network.command_sender());
@@ -394,6 +403,7 @@ fn button_system(
     mut screen: ResMut<UiScreenState>,
     mut worlds: ResMut<WorldManager>,
     mut selected_world: ResMut<SelectedWorld>,
+    mut selected_server: ResMut<SelectedServer>,
     mut chunk_entities: ResMut<ChunkEntities>,
     mut commands: Commands,
     interaction_query: Query<
@@ -401,6 +411,7 @@ fn button_system(
         (Changed<Interaction>, With<Button>),
     >,
     lan_button_query: Query<&LanServerButton>,
+    join_server_query: Query<&JoinServerButton>,
     world_entry_query: Query<&WorldEntryButton>,
     play_world_query: Query<&PlayWorldButton>,
     text_query: Query<&Text>,
@@ -410,13 +421,21 @@ fn button_system(
             continue;
         }
 
-        // Check if this is a LAN server button
+        // Check if this is a LAN server button (click to select)
         if let Ok(btn) = lan_button_query.get(entity) {
-            pending.0.push((
-                btn.0.clone(),
-                false,
-                None,
-            ));
+            selected_server.0 = Some(btn.0.clone());
+            continue;
+        }
+
+        // Check if this is the Join Server button
+        if join_server_query.get(entity).is_ok() {
+            if let Some(ref address) = selected_server.0 {
+                pending.0.push((
+                    address.clone(),
+                    false,
+                    None,
+                ));
+            }
             continue;
         }
 

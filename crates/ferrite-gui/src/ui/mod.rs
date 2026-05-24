@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{LanDiscoveryState, PauseMenuOpen, UiFont, UiRes, UiScreenState};
+use crate::{LanDiscoveryState, PauseMenuOpen, SelectedServer, UiFont, UiRes, UiScreenState};
 use crate::lan_discovery::LanState;
 use crate::worlds::{SelectedWorld, WorldManager};
 
@@ -24,6 +24,7 @@ impl Plugin for UIPlugin {
             })
             .init_resource::<WorldManager>()
             .init_resource::<SelectedWorld>()
+            .init_resource::<SelectedServer>()
             .add_systems(Startup, |mut commands: Commands, server: Res<AssetServer>| {
                 commands.insert_resource(UiFont(server.load("fonts/aaxlMonoSC-Regular.ttf")));
             });

@@ -63,6 +63,11 @@ pub struct WorldEntryButton(pub String);
 #[derive(Component)]
 pub struct PlayWorldButton;
 
+// ── Server List Resources ──
+
+#[derive(Resource, Default)]
+pub struct SelectedServer(pub Option<String>);
+
 // ── Player Resources ──
 
 #[derive(Resource)]
