@@ -36,7 +36,7 @@ pub struct VersionMetadata {
     pub minecraft_arguments: Option<String>,
     #[serde(default)]
     pub arguments: Option<Arguments>,
-    #[serde(default)]
+    #[serde(default, rename = "assetIndex")]
     pub asset_index: AssetIndexRef,
     pub assets: String,
     pub downloads: Downloads,

@@ -29,12 +29,12 @@ Provide a working Minecraft client with world selection, server launch, LAN disc
 - Dead code removed: `InfoText` component, duplicated `btn()`, unused imports
 - `Color::rgb()` → `Color::srgb()` in all UI code
 - Font restored to `aaxlMonoSC-Regular.ttf` (user's original CJK font). `UiFont` resource loaded via Bevy `AssetServer` at startup
-- `ferrite-cli` crate created with `scan-lan` subcommand (CLI-only LAN scan, no Bevy dependency)
+- `server-cli` crate created with `scan-lan` subcommand (CLI-only LAN scan, no Bevy dependency)
 - LAN discovery format corrected: vanilla Minecraft 1.21.8 uses `[MOTD]...[/MOTD][AD]...[/AD]` XML-style tags, not null-separated fields. Packets previously mistaken for "Bedrock" were actually Java Edition broadcasts
-- Shared LAN types (`DiscoveredServer`, `parse_lan_packet`, `create_lan_socket`) extracted to `ferrite-net/src/lan.rs`. Both `crates/client/` and `crates/cli/` import from `ferrite_net::lan`
+- Shared LAN types (`DiscoveredServer`, `parse_lan_packet`, `create_lan_socket`) extracted to `ferrite-net/src/lan.rs`. Both `crates/client/` and `crates/server-cli/` import from `ferrite_net::lan`
 - World selection UI changed from direct-connect to click-to-select + "Play World" button. Selected world highlighted (yellow text), play button turns green when enabled
 - UI rebuild uses generation counter: only rebuilds when new servers discovered, not every frame (eliminates flicker)
-- `ferrite-gui` crate extracted from `ferrite-client`: `player.rs`, `worlds.rs`, `lan_discovery.rs`, `ui/mod.rs` + `ui/menu.rs`, `ui/hud.rs`, `ui/pause.rs`, `ui/server_list.rs` moved to new crate.
+- `ferrite-gui` crate extracted from `server-client`: `player.rs`, `worlds.rs`, `lan_discovery.rs`, `ui/mod.rs` + `ui/menu.rs`, `ui/hud.rs`, `ui/pause.rs`, `ui/server_list.rs` moved to new crate.
 - Shared types (`LanDiscoveryState`, `CmdTx`, `PlayerPlugin`, `UIPlugin`) defined in `ferrite-gui`; client imports them with `ferrite_gui::*`.
 - Old files removed from client: `ui.rs`, `ui/`, `worlds.rs`, `player.rs`, `lan_discovery.rs`, `game.rs`.
 
@@ -83,5 +83,5 @@ Provide a working Minecraft client with world selection, server launch, LAN disc
 - `crates/ferrite-gui/src/ui/hud.rs`: HUD with entity ID / game mode display
 - `crates/ferrite-gui/src/ui/pause.rs`: pause menu (Back to Game, Disconnect)
 - `crates/ferrite-net/src/lan.rs`: shared `DiscoveredServer`, `parse_lan_packet`, `create_lan_socket`
-- `crates/cli/src/scan_lan.rs`: CLI-only LAN scan using `ferrite_net::lan`
-- `crates/cli/src/main.rs`: `scan-lan` subcommand with `clap`
+- `crates/server-cli/src/scan_lan.rs`: CLI-only LAN scan using `ferrite_net::lan`
+- `crates/server-cli/src/main.rs`: `scan-lan` subcommand with `clap`

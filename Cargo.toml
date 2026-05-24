@@ -4,9 +4,10 @@ members = [
     "crates/ferrite-core",
     "crates/ferrite-net",
     "crates/client",
-    "crates/cli",
+    "crates/server-cli",
     # Tooling
     "crates/mc-launcher-cli",
+    "crates/mc-src-cli",
 ]
 default-members = ["crates/client"]
 

@@ -21,7 +21,7 @@ flowchart LR
 - [crates/ferrite-core](crates/ferrite-core) 负责共享的协议模型和基础工具：NBT、Block、Chunk、Position、协议包定义、VarInt/字符串/UUID 编解码。
 - [crates/ferrite-net](crates/ferrite-net) 负责网络连接、加密、压缩、帧处理和登录/配置/游戏状态机。
 - [crates/client](crates/client) 负责客户端运行时：Bevy App、网络连接、ECS 状态、UI、玩家实体、渲染与输入。
-- [crates/cli](crates/cli) 负责命令行工具。
+- [crates/server-cli](crates/server-cli) 负责命令行工具（scan-lan 等）。
 
 ### 运行链路
 

@@ -145,8 +145,7 @@ impl Cache {
 
         let total = response.content_length().unwrap_or(0);
         let mut file = fs::File::create(&temp_path).await?;
-        let display_name = url.split('/').last().unwrap_or(url);
-        download_stream(response, &mut file, total, display_name).await?;
+        download_stream(response, &mut file, total, name).await?;
 
         file.flush().await?;
         fs::rename(&temp_path, &path).await?;
@@ -181,6 +180,7 @@ async fn download_stream(
 ) -> Result<()> {
     let mut stream = response.bytes_stream();
     let mut downloaded: u64 = 0;
+    let mut last_pct: u64 = 0;
 
     while let Some(item) = stream.next().await {
         let chunk = item?;
@@ -188,8 +188,9 @@ async fn download_stream(
         downloaded += chunk.len() as u64;
         if total > 0 {
             let pct = downloaded * 100 / total;
-            if pct % 25 == 0 || downloaded == total {
+            if pct >= last_pct + 25 || downloaded == total {
                 tracing::info!("  {} {}%", label, pct);
+                last_pct = pct;
             }
         }
     }

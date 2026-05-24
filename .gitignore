@@ -13,11 +13,6 @@
 /worlds/*
 /saves/*
 
-/logs/*
-
-/logs
-*.log
-
 /tmp
 
 # Downloaded Minecraft source for reference
@@ -27,5 +22,5 @@
 # Minecraft vanilla client data
 /.minecraft
 
-# Launcher logs
-/logs/mc-launcher-cli
+# Log files anywhere
+*.log

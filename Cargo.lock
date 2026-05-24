@@ -1838,22 +1838,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
 
 [[package]]
-name = "ferrite-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytes",
- "clap",
- "ferrite-core",
- "ferrite-net",
- "serde_json",
- "socket2 0.5.10",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "ferrite-client"
 version = "0.1.0"
 dependencies = [
@@ -2898,6 +2882,20 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "zip",
+]
+
+[[package]]
+name = "mc-src-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -4097,6 +4095,22 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "server-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "clap",
+ "ferrite-core",
+ "ferrite-net",
+ "serde_json",
+ "socket2 0.5.10",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
