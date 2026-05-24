@@ -1,5 +1,6 @@
 use super::block_state_model::BlockStateModel;
 use super::block_state_model_part::BlockStateModelPart;
+use client_resources::model::sprite::material::Baked;
 use client_resources::model::geometry::baked_quad::BakedQuad;
 use ferrite_core::direction::Direction;
 
@@ -36,12 +37,16 @@ impl BlockStateModel for CubeBlockModel {
         parts.push(Box::new(self.clone()));
     }
 
-    fn particle_texture(&self) -> &str {
-        self.face_texture_name(1) // up face
+    fn particle_material(&self) -> Baked {
+        Baked::new(self.face_texture_name(1).to_string(), false) // up face
     }
 
     fn material_flags(&self) -> u32 {
         if self.transparent { 1 } else { 0 }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

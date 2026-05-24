@@ -17,7 +17,7 @@ impl Plugin for RenderPlugin {
 
         let atlas = {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
-            TextureAtlas::build(&registry.models.textures, &mut images)
+            TextureAtlas::build(registry.textures(), &mut images)
         };
 
         app.insert_resource(ChunkRenderRes { registry, atlas });

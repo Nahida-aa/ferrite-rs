@@ -1,5 +1,6 @@
+use ferrite_core::block::BlockState;
 use super::block_state_model_set::BlockStateModelSet;
-use super::dispatch::cube_block_model::CubeBlockModel;
+use super::dispatch::block_state_model::BlockStateModel;
 
 pub struct BlockModelSet {
     pub models: BlockStateModelSet,
@@ -12,7 +13,11 @@ impl BlockModelSet {
         }
     }
 
-    pub fn get(&self, id: u16) -> Option<&CubeBlockModel> {
-        self.models.get(id)
+    pub fn get(&self, state: BlockState) -> &dyn BlockStateModel {
+        self.models.get(state)
+    }
+
+    pub fn textures(&self) -> &[&'static str] {
+        &self.models.textures
     }
 }

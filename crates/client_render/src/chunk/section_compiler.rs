@@ -1,9 +1,10 @@
 use bevy::render::mesh::{Indices, Mesh, PrimitiveTopology};
 
 use crate::block::block_model_set::BlockModelSet;
+use crate::block::dispatch::cube_block_model::CubeBlockModel;
 use crate::texture::texture_atlas::TextureAtlas;
 use ferrite_core::{
-    block, chunk,
+    block::BlockState, chunk,
     direction::{DOWN, EAST, NORTH, SOUTH, UP, WEST},
 };
 
@@ -56,8 +57,8 @@ pub fn chunk_to_mesh(
     let mut uvs: Vec<[f32; 2]> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
 
-    let air_raw = block::BlockState::AIR.raw();
-    let get_raw = |x: isize, y: isize, z: isize| -> u16 {
+    let air = BlockState::AIR;
+    let get_state = |x: isize, y: isize, z: isize| -> BlockState {
         if x < 0
             || x >= size_x as isize
             || y < 0
@@ -65,12 +66,12 @@ pub fn chunk_to_mesh(
             || z < 0
             || z >= size_z as isize
         {
-            return air_raw;
+            return air;
         }
         let si = (y as usize) / chunk::SECTION_HEIGHT;
         let local_y = (y as usize) % chunk::SECTION_HEIGHT;
         let idx = local_y * size_z * size_x + (z as usize) * size_x + (x as usize);
-        chunk.sections[si].blocks[idx].raw()
+        chunk.sections[si].blocks[idx]
     };
 
     let mut idx_offset: u32 = 0;
@@ -84,7 +85,7 @@ pub fn chunk_to_mesh(
         };
 
         for w in 0..=w_size {
-            let mut mask: Vec<Option<(u16, bool)>> = vec![None; u_size * v_size];
+            let mut mask: Vec<Option<(BlockState, bool)>> = vec![None; u_size * v_size];
 
             for v in 0..v_size {
                 for u in 0..u_size {
@@ -101,12 +102,12 @@ pub fn chunk_to_mesh(
                         _ => unreachable!(),
                     };
 
-                    let cur = get_raw(nx, ny, nz);
-                    let prev = get_raw(cx, cy, cz);
+                    let cur = get_state(nx, ny, nz);
+                    let prev = get_state(cx, cy, cz);
                     let idx = v * u_size + u;
-                    if prev != air_raw && cur == air_raw {
+                    if prev != air && cur == air {
                         mask[idx] = Some((prev, true));
-                    } else if prev == air_raw && cur != air_raw {
+                    } else if prev == air && cur != air {
                         mask[idx] = Some((cur, false));
                     }
                 }
@@ -181,9 +182,11 @@ pub fn chunk_to_mesh(
                     let face_idx = face_for_axis(axis, pos_face);
                     let tex_idx = registry
                         .get(id)
+                        .as_any()
+                        .downcast_ref::<CubeBlockModel>()
                         .map(|m| m.faces[face_idx].texture)
                         .unwrap_or(0);
-                    let tex_name = registry.models.textures.get(tex_idx).copied().unwrap_or("");
+                    let tex_name = registry.textures().get(tex_idx).copied().unwrap_or("");
                     let sprite = atlas.sprites.get(tex_name);
                     let (u_min, v_min, u_max, v_max) = sprite
                         .map(|s| (s.u0, s.v0, s.u1, s.v1))

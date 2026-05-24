@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use anyhow::Result;
 use bevy::prelude::*;
 use ferrite_core::chunk::Chunk;
 use gui::player::{CmdTx, PlayerBlock, PlayerBlockEntity, PlayerInfoRes, PlayerPosition};
@@ -11,6 +10,8 @@ use gui::{
     WorldEntryButton, WorldSelectUI,
 };
 use network::{Network, NetworkEvent as NetMsg};
+use std::collections::HashMap;
+use std::thread::JoinHandle;
 use tokio::runtime::Runtime;
 use world::entity::entity::EntityPosition;
 
@@ -36,7 +37,7 @@ pub struct PendingConnect(pub Vec<(String, bool, Option<String>)>);
 /// Tracks a server being started on a background thread.
 #[derive(Resource, Default)]
 pub struct PendingServerSpawn {
-    pub handle: Option<std::thread::JoinHandle<anyhow::Result<ServerHandle>>>,
+    pub handle: Option<JoinHandle<Result<ServerHandle>>>,
     pub address: Option<String>,
 }
 
