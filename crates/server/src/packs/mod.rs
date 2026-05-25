@@ -1,6 +1,9 @@
 pub mod abstract_pack_resources;
 pub mod composite_pack_resources;
+pub mod file_pack_resources;
 pub mod metadata;
+pub mod path_pack_resources;
+pub mod vanilla_pack_resources;
 pub mod pack_location_info;
 pub mod pack_resources;
 pub mod pack_type;

@@ -34,9 +34,38 @@ impl ResourceMetadata for EmptyMetadata {
 
 pub const EMPTY: EmptyMetadata = EmptyMetadata;
 
-use crate::packs::resources::io_supplier::IoSupplier;
+/// A concrete enum over all possible metadata implementations.
+///
+/// This replaces `dyn ResourceMetadata` (not object-safe) with a
+/// closed enum, matching the same pattern as `IoSupplier` and
+/// `PackResources`.
+pub enum ResourceMetadataEnum {
+    Empty,
+    Json(JsonBackedMetadata),
+    Map(MapBased),
+}
 
-pub const EMPTY_SUPPLIER: IoSupplier<EmptyMetadata> = IoSupplier::InMemory(EMPTY);
+impl ResourceMetadata for ResourceMetadataEnum {
+    fn get_section<T: DeserializeOwned + Clone + 'static>(
+        &self,
+        serializer: &MetadataSectionType<T>,
+    ) -> Option<T> {
+        match self {
+            Self::Empty => EmptyMetadata.get_section(serializer),
+            Self::Json(j) => j.get_section(serializer),
+            Self::Map(m) => m.get_section(serializer),
+        }
+    }
+}
+
+impl From<EmptyMetadata> for ResourceMetadataEnum {
+    fn from(_: EmptyMetadata) -> Self {
+        Self::Empty
+    }
+}
+
+/// Convenience constant — the empty metadata instance.
+pub const EMPTY_METADATA: ResourceMetadataEnum = ResourceMetadataEnum::Empty;
 
 pub struct JsonBackedMetadata {
     json: serde_json::Value,
