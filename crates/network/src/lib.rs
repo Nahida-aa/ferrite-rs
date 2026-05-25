@@ -1,3 +1,4 @@
+pub mod chat;
 pub mod codec;
 pub mod lan;
 pub mod network;

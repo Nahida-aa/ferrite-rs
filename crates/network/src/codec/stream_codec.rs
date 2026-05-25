@@ -1,6 +1,6 @@
 use std::fmt;
 
-/// Java 对照: net.minecraft.network.codec.StreamCodec
+/// A composable codec that encodes/decodes `V` to/from a buffer `B`.
 pub trait StreamCodec<B, V> {
     fn encode(&self, buf: &mut B, value: &V);
     fn decode(&self, buf: &mut B) -> V;
@@ -10,7 +10,7 @@ pub trait StreamCodec<B, V> {
 // UnitCodec
 // ---------------------------------------------------------------------------
 
-/// Java 对照: `StreamCodec.unit(instance)`
+/// A codec that always decodes to the given value and checks equality on encode.
 pub struct UnitCodec<V> {
     instance: V,
 }
@@ -36,7 +36,7 @@ pub fn unit<V: Clone>(instance: V) -> UnitCodec<V> {
 // MapCodec
 // ---------------------------------------------------------------------------
 
-/// Java 对照: `StreamCodec.map(to, from)`
+/// A codec that transforms values via `to`/`from` functions.
 pub struct MapCodec<C, F, G> {
     inner: C,
     to: F,
@@ -73,7 +73,6 @@ where
 // Composite1Codec
 // ---------------------------------------------------------------------------
 
-/// Java 对照: `StreamCodec.composite(codec1, getter1, constructor)`
 pub struct Composite1Codec<C, G, F> {
     codec: C,
     getter: G,
@@ -110,7 +109,6 @@ where
 // Composite2Codec
 // ---------------------------------------------------------------------------
 
-/// Java 对照: `StreamCodec.composite(codec1, getter1, codec2, getter2, constructor)`
 pub struct Composite2Codec<C1, C2, G1, G2, F> {
     codec1: C1,
     getter1: G1,
@@ -162,7 +160,6 @@ where
 // Composite3Codec
 // ---------------------------------------------------------------------------
 
-/// Java 对照: `StreamCodec.composite(codec1, getter1, codec2, getter2, codec3, getter3, constructor)`
 pub struct Composite3Codec<C1, C2, C3, G1, G2, G3, F> {
     codec1: C1,
     getter1: G1,
@@ -226,7 +223,6 @@ where
 // Composite4Codec
 // ---------------------------------------------------------------------------
 
-/// Java 对照: four-field composite
 pub struct Composite4Codec<C1, C2, C3, C4, G1, G2, G3, G4, F> {
     codec1: C1,
     getter1: G1,

@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-/// Java 对照: net.minecraft.resources.Identifier
-///
 /// A resource location consisting of a namespace and a path, e.g. `minecraft:stone`.
 /// Both are restricted to lowercase alphanumeric characters plus `._-` for namespaces
 /// and `/._-` for paths.
@@ -16,9 +14,6 @@ impl Identifier {
     pub const DEFAULT_NAMESPACE: &'static str = "minecraft";
     pub const REALMS_NAMESPACE: &'static str = "realms";
 
-    /// Java 对照: `Identifier.fromNamespaceAndPath(String, String)`
-    ///
-    /// Creates an identifier with full validation. Panics on invalid characters.
     pub fn from_namespace_and_path(namespace: impl Into<String>, path: impl Into<String>) -> Self {
         let namespace = namespace.into();
         let path = path.into();
@@ -27,20 +22,16 @@ impl Identifier {
         Self { namespace, path }
     }
 
-    /// Java 对照: `Identifier.parse(String)`
-    ///
     /// Parses a string of the form `namespace:path`. If no separator is found,
     /// the namespace defaults to `minecraft`.
     pub fn parse(identifier: &str) -> Self {
         Self::by_separator(identifier, Self::NAMESPACE_SEPARATOR)
     }
 
-    /// Java 对照: `Identifier.tryParse(String)`
     pub fn try_parse(identifier: &str) -> Option<Self> {
         Self::try_by_separator(identifier, Self::NAMESPACE_SEPARATOR)
     }
 
-    /// Java 对照: `Identifier.withDefaultNamespace(String)`
     pub fn with_default_path(path: impl Into<String>) -> Self {
         let path = path.into();
         assert_valid_path(Self::DEFAULT_NAMESPACE, &path);
@@ -50,7 +41,6 @@ impl Identifier {
         }
     }
 
-    /// Java 对照: `Identifier.tryBuild(String, String)`
     pub fn try_build(namespace: &str, path: &str) -> Option<Self> {
         if Self::is_valid_namespace(namespace) && Self::is_valid_path(path) {
             Some(Self { namespace: namespace.to_owned(), path: path.to_owned() })
@@ -59,7 +49,6 @@ impl Identifier {
         }
     }
 
-    /// Java 对照: `Identifier.bySeparator(String, char)`
     pub fn by_separator(identifier: &str, separator: char) -> Self {
         if let Some(sep_index) = identifier.find(separator) {
             let path = &identifier[sep_index + 1..];
@@ -74,7 +63,6 @@ impl Identifier {
         }
     }
 
-    /// Java 对照: `Identifier.tryBySeparator(String, char)`
     pub fn try_by_separator(identifier: &str, separator: char) -> Option<Self> {
         if let Some(sep_index) = identifier.find(separator) {
             let path = &identifier[sep_index + 1..];
@@ -113,39 +101,32 @@ impl Identifier {
         &self.path
     }
 
-    /// Java 对照: `Identifier.withPath(String)`
     pub fn with_path(&self, new_path: impl Into<String>) -> Self {
         let new_path = new_path.into();
         assert_valid_path(&self.namespace, &new_path);
         Self { namespace: self.namespace.clone(), path: new_path }
     }
 
-    /// Java 对照: `Identifier.withPath(UnaryOperator<String>)`
     pub fn map_path(&self, f: impl FnOnce(&str) -> String) -> Self {
         self.with_path(f(&self.path))
     }
 
-    /// Java 对照: `Identifier.withPrefix(String)`
     pub fn with_prefix(&self, prefix: &str) -> Self {
         self.with_path(format!("{}{}", prefix, self.path))
     }
 
-    /// Java 对照: `Identifier.withSuffix(String)`
     pub fn with_suffix(&self, suffix: &str) -> Self {
         self.with_path(format!("{}{}", self.path, suffix))
     }
 
-    /// Java 对照: `Identifier.toDebugFileName()`
     pub fn to_debug_file_name(&self) -> String {
         self.to_string().replace('/', "_").replace(':', "_")
     }
 
-    /// Java 对照: `Identifier.toLanguageKey()`
     pub fn to_language_key(&self) -> String {
         format!("{}.{}", self.namespace, self.path)
     }
 
-    /// Java 对照: `Identifier.toShortLanguageKey()`
     pub fn to_short_language_key(&self) -> String {
         if self.namespace == Self::DEFAULT_NAMESPACE {
             self.path.clone()
@@ -154,7 +135,6 @@ impl Identifier {
         }
     }
 
-    /// Java 对照: `Identifier.toShortString()`
     pub fn to_short_string(&self) -> String {
         if self.namespace == Self::DEFAULT_NAMESPACE {
             self.path.clone()
@@ -163,12 +143,10 @@ impl Identifier {
         }
     }
 
-    /// Java 对照: `Identifier.toLanguageKey(String)`
     pub fn to_language_key_with_prefix(&self, prefix: &str) -> String {
         format!("{}.{}", prefix, self.to_language_key())
     }
 
-    /// Java 对照: `Identifier.toLanguageKey(String, String)`
     pub fn to_language_key_with_prefix_suffix(&self, prefix: &str, suffix: &str) -> String {
         format!("{}.{}.{}", prefix, self.to_language_key(), suffix)
     }
@@ -177,7 +155,6 @@ impl Identifier {
     // Validation
     // ------------------------------------------------------------------
 
-    /// Java 对照: `Identifier.isValidNamespace(String)`
     pub fn is_valid_namespace(namespace: &str) -> bool {
         if namespace == ".." {
             return false;
@@ -185,22 +162,18 @@ impl Identifier {
         namespace.chars().all(Self::valid_namespace_char)
     }
 
-    /// Java 对照: `Identifier.isValidPath(String)`
     pub fn is_valid_path(path: &str) -> bool {
         path.chars().all(Self::valid_path_char)
     }
 
-    /// Java 对照: `Identifier.isAllowedInIdentifier(char)` — used for StringReader parsing
     pub fn is_allowed_in_identifier(c: char) -> bool {
         matches!(c, '0'..='9' | 'a'..='z' | '_' | ':' | '/' | '.' | '-')
     }
 
-    /// Java 对照: `Identifier.validNamespaceChar(char)`
     fn valid_namespace_char(c: char) -> bool {
         matches!(c, 'a'..='z' | '0'..='9' | '_' | '-' | '.')
     }
 
-    /// Java 对照: `Identifier.validPathChar(char)`
     fn valid_path_char(c: char) -> bool {
         matches!(c, 'a'..='z' | '0'..='9' | '_' | '-' | '/' | '.')
     }
@@ -238,7 +211,7 @@ impl PartialOrd for Identifier {
 }
 
 // ------------------------------------------------------------------
-// Helpers (panicking validation matching Java asserts)
+// Helpers (panicking validation matching the Java asserts)
 // ------------------------------------------------------------------
 
 fn assert_valid_namespace<'a>(namespace: &'a str, path: &str) -> &'a str {

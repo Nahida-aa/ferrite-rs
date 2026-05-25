@@ -36,14 +36,7 @@ pub const EMPTY: EmptyMetadata = EmptyMetadata;
 
 use crate::packs::resources::io_supplier::IoSupplier;
 
-pub struct EmptyMetadataSupplier;
-impl IoSupplier for EmptyMetadataSupplier {
-    type Output = EmptyMetadata;
-    fn get(&self) -> std::io::Result<EmptyMetadata> {
-        Ok(EMPTY)
-    }
-}
-pub const EMPTY_SUPPLIER: EmptyMetadataSupplier = EmptyMetadataSupplier;
+pub const EMPTY_SUPPLIER: IoSupplier<EmptyMetadata> = IoSupplier::InMemory(EMPTY);
 
 pub struct JsonBackedMetadata {
     json: serde_json::Value,

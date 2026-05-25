@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-/// Java 对照: net.minecraft.server.packs.metadata.MetadataSectionType
-/// Rust 直接用 serde::Serialize + serde::Deserialize 代替 DFU Codec
+/// A metadata section descriptor.
+/// Uses `serde::Serialize`/`serde::Deserialize` directly instead of DFU `Codec`.
 pub struct MetadataSectionType<T> {
     pub name: String,
     pub _phantom: PhantomData<T>,

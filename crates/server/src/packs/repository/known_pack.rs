@@ -1,12 +1,11 @@
 use std::fmt;
 
-/// Java 对照: net.minecraft.server.packs.repository.KnownPack
+/// A known data-pack identified by its namespace, id and version string.
 ///
-/// Java 版有一个 `STREAM_CODEC` 静态字段用于网络序列化。
-/// Rust 版暂不需要网络序列化，且缺少合适的编码器基础设施，
-/// 因此这里不提供 `stream_codec()`。等需要时用
-/// `network::codec::stream_codec::composite3` 配合
-/// `network::codec::bytebuf_codecs::string_utf8` 构建即可。
+/// The Java original carries a `STREAM_CODEC` for network serialisation.
+/// We omit it here because no network usage is needed yet; when required,
+/// build one with `network::codec::stream_codec::composite3` and
+/// `network::codec::bytebuf_codecs::string_utf8`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct KnownPack {
     pub namespace: String,

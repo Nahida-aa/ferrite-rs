@@ -3,7 +3,7 @@ use ferrite_core::protocol::codec::{read_string, write_string};
 
 use super::stream_codec::StreamCodec;
 
-/// Java 对照: `ByteBufCodecs.STRING_UTF8`
+/// A `StreamCodec` that reads/writes a length-prefixed UTF-8 string.
 pub struct StringUtf8Codec {
     max_len: usize,
 }
@@ -18,7 +18,6 @@ impl StreamCodec<BytesMut, String> for StringUtf8Codec {
     }
 }
 
-/// Java 对照: `ByteBufCodecs.stringUtf8(int maxLength)`
 pub fn string_utf8(max_len: usize) -> StringUtf8Codec {
     StringUtf8Codec { max_len }
 }

@@ -4567,6 +4567,7 @@ dependencies = [
  "bytes",
  "ferrite_core",
  "network",
+ "resources",
  "serde",
  "serde_json",
 ]
