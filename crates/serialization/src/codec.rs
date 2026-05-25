@@ -1,3 +1,5 @@
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use serde_json::Value;
 
 pub struct Codec<T: 'static + Send + Sync> {
@@ -90,101 +92,11 @@ impl<T: 'static + Send + Sync> Codec<T> {
     }
 }
 
-impl Codec<i32> {
-    pub fn int() -> Self {
+impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Codec<T> {
+    pub fn serde() -> Self {
         Self::new(
-            Box::new(|v| Value::Number(serde_json::Number::from(*v))),
-            Box::new(|v| {
-                v.as_i64()
-                    .and_then(|x| i32::try_from(x).ok())
-                    .map(Ok)
-                    .unwrap_or_else(|| Err(format!("expected int, got {}", v)))
-            }),
-        )
-    }
-}
-
-impl Codec<i64> {
-    pub fn long() -> Self {
-        Self::new(
-            Box::new(|v| Value::Number(serde_json::Number::from(*v))),
-            Box::new(|v| {
-                v.as_i64()
-                    .map(Ok)
-                    .unwrap_or_else(|| Err(format!("expected long, got {}", v)))
-            }),
-        )
-    }
-}
-
-impl Codec<f32> {
-    pub fn float() -> Self {
-        Self::new(
-            Box::new(|v| {
-                Value::Number(serde_json::Number::from_f64(*v as f64).unwrap_or(serde_json::Number::from(0)))
-            }),
-            Box::new(|v| {
-                v.as_f64()
-                    .map(|x| x as f32)
-                    .map(Ok)
-                    .unwrap_or_else(|| Err(format!("expected float, got {}", v)))
-            }),
-        )
-    }
-}
-
-impl Codec<f64> {
-    pub fn double() -> Self {
-        Self::new(
-            Box::new(|v| {
-                Value::Number(serde_json::Number::from_f64(*v).unwrap_or(serde_json::Number::from(0)))
-            }),
-            Box::new(|v| {
-                v.as_f64()
-                    .map(Ok)
-                    .unwrap_or_else(|| Err(format!("expected double, got {}", v)))
-            }),
-        )
-    }
-}
-
-impl Codec<String> {
-    pub fn string() -> Self {
-        Self::new(
-            Box::new(|v| Value::String(v.clone())),
-            Box::new(|v| {
-                v.as_str()
-                    .map(|s| s.to_owned())
-                    .map(Ok)
-                    .unwrap_or_else(|| Err(format!("expected string, got {}", v)))
-            }),
-        )
-    }
-}
-
-impl Codec<bool> {
-    pub fn bool() -> Self {
-        Self::new(
-            Box::new(|v| Value::Bool(*v)),
-            Box::new(|v| {
-                v.as_bool()
-                    .map(Ok)
-                    .unwrap_or_else(|| Err(format!("expected bool, got {}", v)))
-            }),
-        )
-    }
-}
-
-impl Codec<u8> {
-    pub fn byte() -> Self {
-        Self::new(
-            Box::new(|v| Value::Number(serde_json::Number::from(*v))),
-            Box::new(|v| {
-                v.as_u64()
-                    .and_then(|x| u8::try_from(x).ok())
-                    .map(Ok)
-                    .unwrap_or_else(|| Err(format!("expected byte, got {}", v)))
-            }),
+            Box::new(|v| serde_json::to_value(v).unwrap_or(Value::Null)),
+            Box::new(|v| serde_json::from_value(v.clone()).map_err(|e| e.to_string())),
         )
     }
 }
@@ -203,10 +115,6 @@ pub fn list_of<T: 'static + Send + Sync>(codec: Codec<T>) -> Codec<Vec<T>> {
     )
 }
 
-fn pair_field_name(index: usize) -> &'static str {
-    ["first", "second"][index]
-}
-
 pub fn pair<A: 'static + Send + Sync, B: 'static + Send + Sync>(
     codec_a: Codec<A>,
     codec_b: Codec<B>,
@@ -218,16 +126,16 @@ pub fn pair<A: 'static + Send + Sync, B: 'static + Send + Sync>(
     Codec::new(
         Box::new(move |pair: &(A, B)| {
             let mut obj = serde_json::Map::new();
-            obj.insert(pair_field_name(0).to_owned(), encode_a(&pair.0));
-            obj.insert(pair_field_name(1).to_owned(), encode_b(&pair.1));
+            obj.insert("first".to_owned(), encode_a(&pair.0));
+            obj.insert("second".to_owned(), encode_b(&pair.1));
             Value::Object(obj)
         }),
         Box::new(move |value| {
             let obj = value.as_object().ok_or_else(|| "expected object".to_owned())?;
-            let a = obj.get(pair_field_name(0))
+            let a = obj.get("first")
                 .ok_or_else(|| "missing first".to_owned())
                 .and_then(|v| decode_a(v))?;
-            let b = obj.get(pair_field_name(1))
+            let b = obj.get("second")
                 .ok_or_else(|| "missing second".to_owned())
                 .and_then(|v| decode_b(v))?;
             Ok((a, b))
