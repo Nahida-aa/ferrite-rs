@@ -2019,15 +2019,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferrite-server"
-version = "0.1.0"
-dependencies = [
- "ferrite_core",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "ferrite_core"
 version = "0.1.0"
 dependencies = [
@@ -4335,6 +4326,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "resources"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "rgb"
 version = "0.8.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4560,6 +4558,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "ferrite_core",
+ "network",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

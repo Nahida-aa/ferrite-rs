@@ -5,6 +5,7 @@ members = [
     "crates/gui",
     "crates/network",
     "crates/world",
+    "crates/resources",
     "crates/client_player",
     "crates/client_multiplayer",
     "crates/client",
@@ -25,6 +26,7 @@ ferrite_core = { path = "crates/core" }
 network = { path = "crates/network" }
 gui = { path = "crates/gui" }
 world = { path = "crates/world" }
+resources = { path = "crates/resources" }
 reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
     "json",
