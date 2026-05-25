@@ -7,10 +7,10 @@ use crate::packs::resources::resource_metadata::ResourceMetadataEnum;
 /// A resource (a file obtained from a pack), bundled with its metadata.
 ///
 pub struct Resource {
-    source_pack_id: String,
-    known_pack: Option<KnownPack>,
-    stream_supplier: IoSupplier<Vec<u8>>,
-    metadata: ResourceMetadataEnum,
+    pub(crate) source_pack_id: String,
+    pub(crate) known_pack: Option<KnownPack>,
+    pub(crate) stream_supplier: IoSupplier<Vec<u8>>,
+    pub(crate) metadata: ResourceMetadataEnum,
 }
 
 impl Resource {
@@ -40,6 +40,20 @@ impl Resource {
             known_pack,
             stream_supplier,
             metadata: ResourceMetadataEnum::Empty,
+        }
+    }
+
+    pub fn with_metadata(
+        source_pack_id: String,
+        known_pack: Option<KnownPack>,
+        stream_supplier: IoSupplier<Vec<u8>>,
+        metadata: ResourceMetadataEnum,
+    ) -> Self {
+        Self {
+            source_pack_id,
+            known_pack,
+            stream_supplier,
+            metadata,
         }
     }
 

@@ -1,6 +1,13 @@
+pub mod closeable_resource_manager;
+pub mod fallback_resource_manager;
 pub mod io_supplier;
+pub mod multi_pack_resource_manager;
 pub mod preparable_reload_listener;
+pub mod reload_instance;
+pub mod reloadable_resource_manager;
 pub mod resource;
 pub mod resource_manager;
 pub mod resource_manager_reload_listener;
 pub mod resource_metadata;
+pub mod resource_provider;
+pub mod simple_reload_instance;
