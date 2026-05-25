@@ -4,8 +4,8 @@
 // for wiring codecs and registry lookups. It intentionally avoids depending
 // on the rest of the (not-yet-ported) Java-style block system.
 
-use crate::block::state::block_behaviour::{BlockBehaviour, BlockStateBase};
-use crate::block::state::state_holder::{StateHolder, StateHolderData};
+use crate::level::block::state::block_behaviour::{BlockBehaviour, BlockStateBase};
+use crate::level::block::state::state_holder::{StateHolder, StateHolderData};
 /// A lightweight BlockState placeholder: holds the "owner" block name and
 /// a list of property keys/values (both stored as strings for now).
 
