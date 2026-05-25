@@ -9,6 +9,7 @@ network.workspace = true
 gui.workspace = true
 world.workspace = true
 bevy.workspace = true
+glam.workspace = true
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }

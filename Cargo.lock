@@ -1398,6 +1398,7 @@ dependencies = [
  "bevy_diagnostic",
  "chrono",
  "ferrite_core",
+ "glam 0.29.3",
  "gui",
  "image",
  "network",

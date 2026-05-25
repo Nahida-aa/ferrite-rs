@@ -11,4 +11,8 @@ impl BlockState {
     pub fn raw(&self) -> u16 {
         self.0
     }
+
+    pub fn is_air(&self) -> bool {
+        *self == Self::AIR
+    }
 }

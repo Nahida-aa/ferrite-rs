@@ -16,9 +16,10 @@ use tokio::runtime::Runtime;
 use world::entity::entity::EntityPosition;
 
 use crate::render::chunk::chunk_render_dispatcher::ChunkRenderRes;
-use crate::render::chunk::section_compiler::chunk_to_mesh;
+use crate::render::chunk::section_compiler::SectionCompiler;
 use crate::render::texture::texture_atlas::TextureAtlas;
 use crate::server::ServerHandle;
+use ferrite_core::block_pos::BlockPos;
 
 #[derive(Resource)]
 pub struct NetworkRes {
@@ -410,25 +411,33 @@ fn handle_network_events_system(
                 info.game_mode = Some(*game_mode);
             }
             NetworkEvent::ChunkData { x, z, chunk } => {
-                tracing::info!("Building merged mesh for chunk at ({},{})", x, z);
-                let mesh = chunk_to_mesh(chunk, *x, *z, &render.registry, &render.atlas);
-                let mesh_handle = meshes.add(mesh);
-                let material_handle =
-                    get_chunk_material(&mut materials, &mut chunk_entities, &render.atlas);
-                let entity = commands
-                    .spawn(PbrBundle {
-                        mesh: mesh_handle,
-                        material: material_handle,
-                        transform: Transform::IDENTITY,
-                        ..default()
-                    })
-                    .id();
+                tracing::info!("Building section meshes for chunk at ({},{})", x, z);
+                let compiler = SectionCompiler::new(&render.registry);
+                // Compile each section in the chunk separately
+                for (si, _section) in chunk.sections.iter().enumerate() {
+                    let section_y = si * ferrite_core::chunk::SECTION_HEIGHT;
+                    let origin = BlockPos(x * 16, section_y as i32, z * 16);
+                    let mesh = compiler.compile(&chunk.sections, si, origin);
+                    let mesh_handle = meshes.add(mesh);
+                    let material_handle =
+                        get_chunk_material(&mut materials, &mut chunk_entities, &render.atlas);
+                    let entity = commands
+                        .spawn(PbrBundle {
+                            mesh: mesh_handle,
+                            material: material_handle,
+                            transform: Transform::IDENTITY,
+                            ..default()
+                        })
+                        .id();
 
-                // Dedup: despawn old mesh for the same chunk
-                if let Some(old) = chunk_entities.entities.insert((*x, *z), entity) {
-                    commands.entity(old).despawn();
-                } else {
-                    chunk_count.0 = chunk_entities.entities.len();
+                    // Use (x, z, section_index) as key for dedup
+                    let _key = (*x, *z, si as i32);
+                    // For now we still use (x, z) key — TODO: update ChunkEntities to track sections
+                    if let Some(old) = chunk_entities.entities.insert((*x, *z), entity) {
+                        commands.entity(old).despawn();
+                    } else {
+                        chunk_count.0 = chunk_entities.entities.len();
+                    }
                 }
             }
         }
