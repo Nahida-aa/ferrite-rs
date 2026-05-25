@@ -5972,13 +5972,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "world_level"
-version = "0.1.0"
-dependencies = [
- "ferrite_core",
-]
-
-[[package]]
 name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

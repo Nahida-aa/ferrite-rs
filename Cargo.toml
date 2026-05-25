@@ -5,7 +5,6 @@ members = [
     "crates/gui",
     "crates/network",
     "crates/world",
-    "crates/world_level",
     "crates/client_player",
     "crates/client_multiplayer",
     "crates/client",

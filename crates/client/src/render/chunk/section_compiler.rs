@@ -1,9 +1,11 @@
 use bevy::render::mesh::{Indices, Mesh, PrimitiveTopology};
 
-// use crate::block::block_model_set::BlockModelSet;
-// use crate::texture::texture_atlas::TextureAtlas;
 use crate::render::{
-    block::{block_model_set::BlockModelSet, dispatch::block_state_model::BlockStateModel},
+    block::{
+        block_model_set::BlockModelSet,
+        dispatch::block_state_model::BlockStateModel,
+        model::block_model::BlockModel,
+    },
     texture::texture_atlas::TextureAtlas,
 };
 use ferrite_core::{
@@ -184,8 +186,11 @@ pub fn chunk_to_mesh(
                         |x: f32, y: f32, z: f32| -> [f32; 3] { [base_x + x, y, base_z + z] };
 
                     let face_idx = face_for_axis(axis, pos_face);
-                    let tex_idx = match registry.get(id).model {
-                        BlockStateModel::SingleVariant(ref m) => m.faces[face_idx].texture,
+                    let tex_idx = match registry.get(id) {
+                        BlockModel::StateWrapper(wrapper) => match &wrapper.model {
+                            BlockStateModel::SingleVariant(m) => m.faces[face_idx].texture,
+                        },
+                        BlockModel::Empty => 0,
                     };
                     let tex_name = registry.textures().get(tex_idx).copied().unwrap_or("");
                     let sprite = atlas.sprites.get(tex_name);

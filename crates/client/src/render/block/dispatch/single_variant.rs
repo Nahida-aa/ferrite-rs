@@ -15,7 +15,7 @@ pub struct OverlayFace {
 }
 
 #[derive(Clone)]
-pub struct CubeBlockModel {
+pub struct SingleVariant {
     pub faces: [BlockFace; 6],
     pub overlay: Option<OverlayFace>,
     pub transparent: bool,
@@ -23,7 +23,7 @@ pub struct CubeBlockModel {
     pub face_texture_names: [usize; 6],
 }
 
-impl CubeBlockModel {
+impl SingleVariant {
     pub fn face_texture_name(&self, face_idx: usize) -> &str {
         self.texture_names
             .get(self.faces[face_idx].texture)

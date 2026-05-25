@@ -1,8 +1,5 @@
-// use crate::block::dispatch::single_variant::CubeBlockModel;
-// use client_resources::model::sprite::material::Baked;
-
 use crate::{
-    render::block::dispatch::single_variant::CubeBlockModel,
+    render::block::dispatch::single_variant::SingleVariant,
     resources::model::sprite::material::Baked,
 };
 
@@ -14,14 +11,14 @@ use crate::{
 #[derive(Clone)]
 pub enum BlockStateModel {
     /// Java 对照: net.minecraft.client.renderer.block.dispatch.SingleVariant
-    SingleVariant(CubeBlockModel),
+    SingleVariant(SingleVariant),
     // Java 对照: net.minecraft.client.renderer.block.dispatch.WeightedVariants
     // TODO: WeightedVariants(WeightedList<BlockStateModel>),
 }
 
 impl BlockStateModel {
     // Java 对照: BlockStateModel.collectParts
-    pub fn collect_parts(&self, parts: &mut Vec<CubeBlockModel>) {
+    pub fn collect_parts(&self, parts: &mut Vec<SingleVariant>) {
         match self {
             BlockStateModel::SingleVariant(model) => parts.push(model.clone()),
         }

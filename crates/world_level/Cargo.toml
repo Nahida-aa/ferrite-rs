@@ -1,8 +1,0 @@
-[package]
-name = "world_level"
-version = "0.1.0"
-edition.workspace = true
-publish.workspace = true
-
-[dependencies]
-ferrite_core.workspace = true
