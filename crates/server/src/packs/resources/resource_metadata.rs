@@ -2,15 +2,17 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::io::Read;
 
+use serde::de::DeserializeOwned;
+
 use crate::packs::metadata::metadata_section_type::{MetadataSectionType, WithValue};
 
 pub trait ResourceMetadata {
-    fn get_section<T: 'static + Send + Sync + Clone>(
+    fn get_section<T: DeserializeOwned + Clone + 'static>(
         &self,
         serializer: &MetadataSectionType<T>,
     ) -> Option<T>;
 
-    fn get_typed_section<'a, T: 'static + Send + Sync + Clone>(
+    fn get_typed_section<'a, T: DeserializeOwned + Clone + 'static>(
         &self,
         type_: &'a MetadataSectionType<T>,
     ) -> Option<WithValue<'a, T>> {
@@ -22,7 +24,7 @@ pub trait ResourceMetadata {
 pub struct EmptyMetadata;
 
 impl ResourceMetadata for EmptyMetadata {
-    fn get_section<T: 'static + Send + Sync + Clone>(
+    fn get_section<T: DeserializeOwned + Clone + 'static>(
         &self,
         _serializer: &MetadataSectionType<T>,
     ) -> Option<T> {
@@ -55,12 +57,12 @@ impl JsonBackedMetadata {
 }
 
 impl ResourceMetadata for JsonBackedMetadata {
-    fn get_section<T: 'static + Send + Sync + Clone>(
+    fn get_section<T: DeserializeOwned + Clone + 'static>(
         &self,
         serializer: &MetadataSectionType<T>,
     ) -> Option<T> {
         let section = self.json.get(&serializer.name)?;
-        serializer.codec.decode(section).ok()
+        serde_json::from_value(section.clone()).ok()
     }
 }
 
@@ -75,17 +77,13 @@ impl MapBased {
         }
     }
 
-    pub fn insert<T: Clone + 'static + Send + Sync>(
-        &mut self,
-        type_: &MetadataSectionType<T>,
-        value: T,
-    ) {
+    pub fn insert<T: Clone + 'static>(&mut self, type_: &MetadataSectionType<T>, value: T) {
         self.values.insert(type_.name.clone(), Box::new(value));
     }
 }
 
 impl ResourceMetadata for MapBased {
-    fn get_section<T: 'static + Send + Sync + Clone>(
+    fn get_section<T: DeserializeOwned + Clone + 'static>(
         &self,
         serializer: &MetadataSectionType<T>,
     ) -> Option<T> {
@@ -96,7 +94,7 @@ impl ResourceMetadata for MapBased {
     }
 }
 
-pub fn of<T: 'static + Send + Sync + Clone>(
+pub fn of<T: DeserializeOwned + Clone + 'static>(
     type_: &MetadataSectionType<T>,
     value: T,
 ) -> MapBased {

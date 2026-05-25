@@ -11,7 +11,6 @@ members = [
     # Tooling
     "crates/server-cli",
     "crates/server",
-    "crates/serialization",
     "crates/mc-launcher-cli",
     "crates/mc-src-cli",
 ]
@@ -26,8 +25,6 @@ ferrite_core = { path = "crates/core" }
 network = { path = "crates/network" }
 gui = { path = "crates/gui" }
 world = { path = "crates/world" }
-serialization = { path = "crates/serialization" }
-
 reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
     "json",

@@ -1,13 +1,15 @@
-use serialization::codec::Codec;
+use std::marker::PhantomData;
 
-pub struct MetadataSectionType<T: 'static + Send + Sync> {
+/// Java 对照: net.minecraft.server.packs.metadata.MetadataSectionType
+/// Rust 直接用 serde::Serialize + serde::Deserialize 代替 DFU Codec
+pub struct MetadataSectionType<T> {
     pub name: String,
-    pub codec: Codec<T>,
+    pub _phantom: PhantomData<T>,
 }
 
-impl<T: 'static + Send + Sync> MetadataSectionType<T> {
-    pub fn new(name: String, codec: Codec<T>) -> Self {
-        Self { name, codec }
+impl<T> MetadataSectionType<T> {
+    pub fn new(name: String) -> Self {
+        Self { name, _phantom: PhantomData }
     }
 
     pub fn with_value(&self, value: T) -> WithValue<'_, T> {
@@ -15,7 +17,17 @@ impl<T: 'static + Send + Sync> MetadataSectionType<T> {
     }
 }
 
-pub struct WithValue<'a, T: 'static + Send + Sync> {
+pub struct WithValue<'a, T> {
     pub type_: &'a MetadataSectionType<T>,
     pub value: T,
+}
+
+impl<'a, T> WithValue<'a, T> {
+    pub fn unwrap_to_type<U>(&self, type_: &MetadataSectionType<U>) -> Option<&U> {
+        if std::ptr::from_ref(self.type_) as *const () == std::ptr::from_ref(type_) as *const () {
+            Some(unsafe { &*(&self.value as *const T as *const U) })
+        } else {
+            None
+        }
+    }
 }

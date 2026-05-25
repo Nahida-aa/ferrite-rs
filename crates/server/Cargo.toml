@@ -5,6 +5,5 @@ edition.workspace = true
 
 [dependencies]
 ferrite_core = { workspace = true }
-serialization = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
